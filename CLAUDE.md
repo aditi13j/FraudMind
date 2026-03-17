@@ -3,6 +3,47 @@
 
 ---
 
+## Authoritative References
+
+**architecture.md is the single source of truth for all architectural decisions.**
+Read it before making any structural change. Do not deviate from it without
+flagging the conflict explicitly.
+
+- architecture.md — agent council, tiers, routing logic, FraudState schema, version roadmap
+- testing.md — test strategy per version
+- CLAUDE.md (this file) — coding conventions, current build scope, project structure
+
+---
+
+## Critical Constraints — Never Violate These
+
+### Unified Verdict Enum
+Every agent in the system must use this exact verdict enum and no other:
+
+    Literal["block", "allow", "step_up", "escalate"]
+
+- block    = high confidence fraud, immediate action required
+- allow    = high confidence legitimate, proceed normally
+- step_up  = ambiguous, require additional verification (MFA, OTP, 3DS)
+- escalate = novel or complex pattern, requires human review
+
+Never use: approve, decline, review, challenge, flag, or any other term.
+This constraint applies to every agent — ATO, Payment, Identity, Promo,
+Ring Detection, Payload, and Arbiter — without exception.
+
+### Pydantic for Everything
+Every agent input and output must be a Pydantic BaseModel.
+No raw dicts passed between agents or returned from agents.
+
+### temperature=0 Always
+All LLM calls use temperature=0 for deterministic outputs.
+
+### JSON Only from LLM
+Every agent system prompt must end with:
+"Respond with JSON only. No preamble, no markdown, no explanation outside the JSON."
+
+---
+
 ## What This Project Is
 
 FraudMind is a multi-agent fraud intelligence system that investigates
@@ -13,24 +54,28 @@ operate in networks. FraudMind closes that gap using a council of
 specialist agents that collaborate, challenge each other, and converge
 on a verdict with full reasoning transparency.
 
-Full architecture is in architecture.md. Full testing strategy is in
-testing.md. Do not deviate from the architecture without flagging it.
-
 ---
 
-## Current Build: Version 1
+## Current Build: Version 2
 
-**Two agents. LangGraph. Shared state. ATO Agent + Payment Agent wired
-into a sequential graph with a shared FraudState.**
+**Six specialist agents running in parallel with conditional routing.**
 
-Version 0 is complete. Version 1 adds:
-- Payment Agent with its own Pydantic input/output schemas
-- LangGraph StateGraph with shared FraudState
-- Sequential graph: START → ato_node → payment_node → END
-- Each node skips gracefully if its signals are absent from state
+Versions 0 and 1 are complete. Version 2 adds:
+- Identity Agent (synthetic identity, PII reuse, fake account creation)
+- Promo Agent (referral rings, trial abuse, cancel-after-export)
+- Ring Detection Agent (entity graph, known ring signatures -- always runs)
+- Payload Agent (bots, automation, TLS fingerprints, credential stuffing)
+- All 6 specialists run in parallel via LangGraph Send fan-out
+- Conditional routing: fast / standard / full_council tiers
+- Ring Detection always runs if ring_signals are present
+- known_ring_signature_match forces full_council regardless of routing_tier
+- Expanded FraudState with multi-entity fields matching architecture.md
+- Graceful degradation: each node catches failures and writes to agents_unavailable
+- agents_unavailable uses Annotated[list[str], operator.add] for safe parallel merging
+- FinalVerdict stub in final_schemas.py for forward-compatible FraudState
 
-Do not introduce Identity Agent, Network Agent, or orchestration logic
-in this version. Version 1 scope is two agents, one graph, shared state.
+Graph topology:
+    START → set_routing_tier → [parallel fan-out via Send] → council_join → END
 
 ---
 
@@ -57,7 +102,7 @@ looks like an account takeover.
 - support_ticket_language_match: bool — does writing style match account history
 
 ### Output verdict (ATOVerdict)
-- verdict: Literal["block", "allow", "challenge", "escalate"]
+- verdict: Literal["block", "allow", "step_up", "escalate"]
 - confidence: float — 0.0 to 1.0
 - primary_signals: list[str] — the 2-3 signals that drove the decision
 - reasoning: str — plain English explanation of the verdict
@@ -80,32 +125,46 @@ Follow these on every file you create:
 
 ---
 
-## Project Structure for Version 1
+## Project Structure for Version 2
 
 ```
 FraudMind/
-  CLAUDE.md                  ← this file
-  architecture.md            ← full system architecture
-  testing.md                 ← full testing strategy
-  README.md                  ← project readme
-  .env                       ← OPENAI_API_KEY (never commit this)
-  .gitignore                 ← ignore .env and __pycache__
-  requirements.txt           ← dependencies
+  CLAUDE.md                        ← this file
+  architecture.md                  ← authoritative system architecture
+  testing.md                       ← full testing strategy
+  README.md                        ← project readme
+  .env                             ← OPENAI_API_KEY (never commit this)
+  .gitignore                       ← ignore .env and __pycache__
+  requirements.txt                 ← dependencies
   src/
     agents/
-      ato_agent.py           ← ATO Agent (Version 0)
-      payment_agent.py       ← Payment Agent (Version 1)
+      ato_agent.py                 ← ATO Agent (Version 0)
+      payment_agent.py             ← Payment Agent (Version 1)
+      identity_agent.py            ← Identity Agent (Version 2)
+      promo_agent.py               ← Promo Agent (Version 2)
+      ring_detection_agent.py      ← Ring Detection Agent (Version 2, always runs)
+      payload_agent.py             ← Payload Agent (Version 2)
     schemas/
-      ato_schemas.py         ← ATO Pydantic schemas
-      payment_schemas.py     ← Payment Pydantic schemas
+      ato_schemas.py               ← ATO Pydantic schemas
+      payment_schemas.py           ← Payment Pydantic schemas
+      identity_schemas.py          ← Identity Pydantic schemas
+      promo_schemas.py             ← Promo Pydantic schemas
+      ring_schemas.py              ← Ring Detection Pydantic schemas
+      payload_schemas.py           ← Payload Pydantic schemas
+      final_schemas.py             ← FinalVerdict stub (Version 4)
     graph/
-      fraud_graph.py         ← LangGraph graph with shared FraudState
+      fraud_graph.py               ← Parallel graph with conditional routing
   tests/
-    test_ato_agent.py        ← ATO schema validation tests
-    test_payment_agent.py    ← Payment schema validation tests
+    test_ato_agent.py              ← ATO schema tests
+    test_payment_agent.py          ← Payment schema tests
+    test_identity_agent.py         ← Identity schema tests
+    test_promo_agent.py            ← Promo schema tests
+    test_ring_detection_agent.py   ← Ring Detection schema tests
+    test_payload_agent.py          ← Payload schema tests
   notebooks/
-    version0_demo.ipynb      ← ATO Agent standalone demo
-    version1_demo.ipynb      ← Full graph demo: 3 cases through both agents
+    version0_demo.ipynb            ← ATO Agent standalone demo
+    version1_demo.ipynb            ← ATO + Payment sequential graph demo
+    version2_demo.ipynb            ← Full council parallel graph demo
 ```
 
 ---
@@ -166,13 +225,15 @@ Ask Claude Code to build in this exact order:
 
 ---
 
-## What Comes After Version 1
+## What Comes After Version 2
 
-Version 2 introduces the Identity Agent and Network Agent. Both are
-added as new nodes to the existing graph. Do not think about this yet.
-Version 1 first.
+Per architecture.md, Version 3 adds real tools for each agent (mock DB
+lookups, device registry, entity graph queries), a basic Chroma memory
+layer, and LangSmith tracing. Do not add tools or memory before Version 3.
 
 ---
 
 ## Last Updated
-Version 1 in progress. ATO Agent complete. Payment Agent + LangGraph graph added.
+Version 2 complete. Six specialists running in parallel. Conditional routing
+implemented. Ring Detection always runs. Unified verdict enum enforced across
+all agents.
