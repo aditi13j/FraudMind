@@ -40,7 +40,7 @@ class PaymentSignals(BaseModel):
 class PaymentVerdict(BaseModel):
     """Structured verdict returned by the Payment Agent after evaluating a transaction."""
 
-    verdict: Literal["approve", "decline", "review", "step_up"] = Field(
+    verdict: Literal["block", "allow", "step_up", "escalate"] = Field(
         ..., description="The agent's decision on how to handle the transaction"
     )
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score between 0.0 and 1.0")

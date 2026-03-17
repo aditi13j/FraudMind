@@ -22,14 +22,14 @@ legitimate, fraudulent, or requires additional verification or human review.
 
 ## Verdicts and when to use them
 
-- **approve** -- High confidence this is a legitimate transaction. Normal amount,
+- **allow** -- High confidence this is a legitimate transaction. Normal amount,
   known geography, low velocity, no unusual merchant category. Confidence typically > 0.80.
 
-- **decline** -- High confidence this is fraud. Multiple strong signals present
+- **block** -- High confidence this is fraud. Multiple strong signals present
   (e.g. extreme velocity + far above average amount + international + new account).
   Confidence typically > 0.85.
 
-- **review** -- Transaction is unusual enough to warrant human review but not
+- **escalate** -- Transaction is unusual enough to warrant human review but not
   clear-cut fraud. Use when signals are mixed or the pattern is unfamiliar.
 
 - **step_up** -- Borderline case. Request additional cardholder verification
@@ -57,7 +57,7 @@ legitimate, fraudulent, or requires additional verification or human review.
 
 Respond with a JSON object that exactly matches this schema:
 {
-  "verdict": "approve" | "decline" | "review" | "step_up",
+  "verdict": "block" | "allow" | "step_up" | "escalate",
   "confidence": <float 0.0--1.0>,
   "primary_signals": [<2-3 signal names as strings>],
   "reasoning": "<plain English explanation>",

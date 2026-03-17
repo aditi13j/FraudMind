@@ -141,27 +141,27 @@ class TestPaymentSignalsInvalid:
 # ---------------------------------------------------------------------------
 
 class TestPaymentVerdictValid:
-    def test_decline_verdict(self) -> None:
+    def test_block_verdict(self) -> None:
         verdict = PaymentVerdict(
-            verdict="decline",
+            verdict="block",
             confidence=0.95,
             primary_signals=["amount_vs_avg_ratio", "transactions_last_1h", "is_international"],
             reasoning="Transaction is 28x the account average from a new account with 8 transactions in the last hour.",
-            recommended_action="Decline the transaction and flag the account for fraud review.",
+            recommended_action="Block the transaction and flag the account for fraud review.",
         )
-        assert verdict.verdict == "decline"
+        assert verdict.verdict == "block"
         assert verdict.confidence == 0.95
         assert len(verdict.primary_signals) == 3
 
-    def test_approve_verdict(self) -> None:
+    def test_allow_verdict(self) -> None:
         verdict = PaymentVerdict(
-            verdict="approve",
+            verdict="allow",
             confidence=0.91,
             primary_signals=["card_present", "amount_vs_avg_ratio"],
             reasoning="In-store purchase close to the account average with normal velocity.",
-            recommended_action="Approve the transaction.",
+            recommended_action="Allow the transaction.",
         )
-        assert verdict.verdict == "approve"
+        assert verdict.verdict == "allow"
 
     def test_step_up_verdict(self) -> None:
         verdict = PaymentVerdict(
@@ -173,24 +173,24 @@ class TestPaymentVerdictValid:
         )
         assert verdict.verdict == "step_up"
 
-    def test_review_verdict(self) -> None:
+    def test_escalate_verdict(self) -> None:
         verdict = PaymentVerdict(
-            verdict="review",
+            verdict="escalate",
             confidence=0.55,
             primary_signals=["transactions_last_1h", "merchant_category"],
             reasoning="Unusual velocity in a gaming merchant category.",
             recommended_action="Route to fraud analyst queue.",
         )
-        assert verdict.verdict == "review"
+        assert verdict.verdict == "escalate"
 
     def test_confidence_boundary_values(self) -> None:
         for value in [0.0, 0.5, 1.0]:
             verdict = PaymentVerdict(
-                verdict="approve",
+                verdict="allow",
                 confidence=value,
                 primary_signals=["card_present"],
                 reasoning="Test.",
-                recommended_action="Approve.",
+                recommended_action="Allow.",
             )
             assert verdict.confidence == value
 
@@ -203,7 +203,7 @@ class TestPaymentVerdictInvalid:
     def test_invalid_verdict_literal(self) -> None:
         with pytest.raises(ValidationError):
             PaymentVerdict(
-                verdict="allow",  # not a valid literal for PaymentVerdict
+                verdict="approve",  # not a valid literal for PaymentVerdict
                 confidence=0.9,
                 primary_signals=["card_present"],
                 reasoning="Test.",
@@ -213,7 +213,7 @@ class TestPaymentVerdictInvalid:
     def test_confidence_above_1(self) -> None:
         with pytest.raises(ValidationError):
             PaymentVerdict(
-                verdict="approve",
+                verdict="allow",
                 confidence=1.1,
                 primary_signals=["card_present"],
                 reasoning="Test.",
@@ -223,7 +223,7 @@ class TestPaymentVerdictInvalid:
     def test_confidence_below_0(self) -> None:
         with pytest.raises(ValidationError):
             PaymentVerdict(
-                verdict="decline",
+                verdict="block",
                 confidence=-0.1,
                 primary_signals=["amount_vs_avg_ratio"],
                 reasoning="Test.",
@@ -233,7 +233,7 @@ class TestPaymentVerdictInvalid:
     def test_primary_signals_exceeds_max(self) -> None:
         with pytest.raises(ValidationError):
             PaymentVerdict(
-                verdict="decline",
+                verdict="block",
                 confidence=0.9,
                 primary_signals=["a", "b", "c", "d"],  # max is 3
                 reasoning="Test.",
@@ -243,7 +243,7 @@ class TestPaymentVerdictInvalid:
     def test_primary_signals_empty(self) -> None:
         with pytest.raises(ValidationError):
             PaymentVerdict(
-                verdict="approve",
+                verdict="allow",
                 confidence=0.9,
                 primary_signals=[],  # min is 1
                 reasoning="Test.",
