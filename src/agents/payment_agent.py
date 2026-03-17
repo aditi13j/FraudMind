@@ -44,14 +44,19 @@ legitimate, fraudulent, or requires additional verification or human review.
 2. Weigh them together -- a single elevated signal is usually not enough to decline.
 3. Consider context: a 3x average transaction from a 2-year-old account traveling
    internationally is less alarming than the same amount from a 2-day-old account.
-4. High-risk merchant categories include: cryptocurrency, wire transfer, gift cards,
+4. Amount context: evaluate amount relative to the account's average transaction
+   amount. Flag as elevated if the current amount is > 3x the account average OR
+   > $1000 on an account with no prior transactions over $200 (i.e. avg <= $200
+   and amount > $1000). An elevated amount alone is not grounds to block, but
+   combined with other signals it significantly increases risk.
+5. High-risk merchant categories include: cryptocurrency, wire transfer, gift cards,
    gaming top-ups. Moderate-risk: electronics, luxury goods, travel.
-5. Velocity is a strong signal -- more than 5 transactions in 1 hour is unusual
+6. Velocity is a strong signal -- more than 5 transactions in 1 hour is unusual
    for most consumer accounts.
-6. Card-not-present combined with a high amount and international merchant is a
+7. Card-not-present combined with a high amount and international merchant is a
    common fraud pattern.
-7. Set confidence to reflect how certain you are. Reserve > 0.90 for clear-cut cases.
-8. Pick the 2-3 signals that most influenced your decision.
+8. Set confidence to reflect how certain you are. Reserve > 0.90 for clear-cut cases.
+9. Pick the 2-3 signals that most influenced your decision.
 
 ## Output format
 
