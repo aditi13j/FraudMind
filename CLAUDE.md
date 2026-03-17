@@ -18,19 +18,19 @@ testing.md. Do not deviate from the architecture without flagging it.
 
 ---
 
-## Current Build: Version 0
+## Current Build: Version 1
 
-**One agent. No LangGraph. No orchestration. Just the ATO Agent working
-end to end with structured input and structured output.**
+**Two agents. LangGraph. Shared state. ATO Agent + Payment Agent wired
+into a sequential graph with a shared FraudState.**
 
-This version proves out:
-- The agent prompt design
-- The Pydantic input/output schemas
-- The LLM call pattern we will use in all future agents
-- That the agent reasons correctly on mock fraud signals
+Version 0 is complete. Version 1 adds:
+- Payment Agent with its own Pydantic input/output schemas
+- LangGraph StateGraph with shared FraudState
+- Sequential graph: START → ato_node → payment_node → END
+- Each node skips gracefully if its signals are absent from state
 
-Do not introduce LangGraph, memory, tools, or any other agents in this
-version. Version 0 is intentionally minimal.
+Do not introduce Identity Agent, Network Agent, or orchestration logic
+in this version. Version 1 scope is two agents, one graph, shared state.
 
 ---
 
@@ -80,26 +80,32 @@ Follow these on every file you create:
 
 ---
 
-## Project Structure for Version 0
+## Project Structure for Version 1
 
 ```
 FraudMind/
   CLAUDE.md                  ← this file
   architecture.md            ← full system architecture
   testing.md                 ← full testing strategy
-  README.md                  ← to be written in Version 5
+  README.md                  ← project readme
   .env                       ← OPENAI_API_KEY (never commit this)
   .gitignore                 ← ignore .env and __pycache__
   requirements.txt           ← dependencies
   src/
     agents/
-      ato_agent.py           ← the only file being built in Version 0
+      ato_agent.py           ← ATO Agent (Version 0)
+      payment_agent.py       ← Payment Agent (Version 1)
     schemas/
-      ato_schemas.py         ← Pydantic input/output schemas
+      ato_schemas.py         ← ATO Pydantic schemas
+      payment_schemas.py     ← Payment Pydantic schemas
+    graph/
+      fraud_graph.py         ← LangGraph graph with shared FraudState
   tests/
-    test_ato_agent.py        ← basic tests for Version 0
+    test_ato_agent.py        ← ATO schema validation tests
+    test_payment_agent.py    ← Payment schema validation tests
   notebooks/
-    version0_demo.ipynb      ← demo notebook showing agent running on 3 mock cases
+    version0_demo.ipynb      ← ATO Agent standalone demo
+    version1_demo.ipynb      ← Full graph demo: 3 cases through both agents
 ```
 
 ---
@@ -160,13 +166,13 @@ Ask Claude Code to build in this exact order:
 
 ---
 
-## What Comes After Version 0
+## What Comes After Version 1
 
-Version 1 introduces LangGraph. Two agents (ATO + Payment) wired into
-a minimal graph with shared state. Do not think about this yet.
-Version 0 first.
+Version 2 introduces the Identity Agent and Network Agent. Both are
+added as new nodes to the existing graph. Do not think about this yet.
+Version 1 first.
 
 ---
 
 ## Last Updated
-Starting fresh — Version 0 in progress. ATO Agent not yet built.
+Version 1 in progress. ATO Agent complete. Payment Agent + LangGraph graph added.
