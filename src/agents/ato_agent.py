@@ -1,128 +1,81 @@
 """
-ATO (Account Takeover) Agent — Version 0
+ATO Specialist Scorer -- v2 architecture
 
-Single-agent, single-LLM-call implementation. Receives session signals as a
-MockATOSignals instance and returns a structured ATOVerdict.
+Deterministic Python scoring function. No LLM calls.
+Takes MockATOSignals, applies weighted rules, returns SpecialistScore.
 """
 
-import json
-import os
-
-from dotenv import load_dotenv
-from openai import OpenAI
-
-from src.schemas.ato_schemas import ATOVerdict, MockATOSignals
-
-load_dotenv()
-
-SYSTEM_PROMPT = """You are an Account Takeover (ATO) fraud detection agent.
-
-Your job is to evaluate session signals for a login event and decide whether
-the session is a legitimate user, an account takeover by a fraudster, or
-something in between that requires additional verification.
-
-## Verdicts and when to use them
-
-- **block** — High confidence this is a fraudster. Multiple strong ATO signals
-  present (e.g. new device + geo mismatch + credential/email change + high-value
-  action). Immediate action required. Confidence typically > 0.85.
-
-- **allow** — High confidence this is the legitimate account owner. Known device,
-  matching geo, normal behavior, no sensitive changes. Confidence typically > 0.80.
-
-- **step_up** — Ambiguous. Some risk signals are present but not enough to block.
-  Prompt the user for MFA or additional verification before proceeding.
-  Use this when you are uncertain.
-
-- **escalate** — Unusual pattern that does not fit a clear ATO profile but is too
-  suspicious to allow or step_up alone. Requires human review.
-
-## How to reason
-
-1. Identify which signals are elevated (new device, geo mismatch, email change,
-   immediate high-value action, password change, language mismatch).
-2. Weigh them together — a single signal is rarely enough to block.
-3. Consider context: a geo mismatch is less alarming if the account is old and
-   the user has traveled before. A new device is more alarming if combined with
-   a geo mismatch and an immediate payout attempt.
-4. When signals conflict (e.g. new device but previously visited location), lean toward
-   step_up rather than block. Reserve block for cases where the majority of signals
-   point to fraud.
-5. Pick the 2-3 signals that most influenced your decision.
-6. Set confidence to reflect how certain you are. Reserve >0.90 for clear-cut cases.
-
-## Output format
-
-Respond with a JSON object that exactly matches this schema:
-{
-  "verdict": "block" | "allow" | "step_up" | "escalate",
-  "confidence": <float 0.0–1.0>,
-  "primary_signals": [<2-3 signal names as strings>],
-  "reasoning": "<plain English explanation>",
-  "recommended_action": "<what the platform should do next>"
-}
-
-Respond with JSON only. No preamble, no markdown, no explanation outside the JSON.
-"""
+from src.schemas.ato_schemas import MockATOSignals
+from src.schemas.specialist_score import SpecialistScore
 
 
-def build_user_message(signals: MockATOSignals) -> str:
-    """Convert a MockATOSignals instance into a plain-text prompt for the LLM."""
-    return f"""Evaluate the following login session for account takeover risk:
-
-Account ID:                   {signals.account_id}
-Account age (days):           {signals.account_age_days}
-New device:                   {signals.is_new_device}
-Device ID:                    {signals.device_id}
-Login location:               {signals.login_geo}
-Account home location:        {signals.account_home_geo}
-Geo mismatch:                 {signals.geo_mismatch}
-Days since last login:        {signals.time_since_last_login_days}
-Immediate high-value action:  {signals.immediate_high_value_action}
-Email change attempted:       {signals.email_change_attempted}
-Password change attempted:    {signals.password_change_attempted}
-Support language match:       {signals.support_ticket_language_match}
-
-Return your verdict as a JSON object matching the schema described in your instructions."""
-
-
-def run_ato_agent(signals: MockATOSignals) -> ATOVerdict:
+def score_ato(signals: MockATOSignals) -> SpecialistScore:
     """
-    Run the ATO Agent on a set of session signals.
+    Score a login session for Account Takeover risk.
 
-    Args:
-        signals: A MockATOSignals instance containing the session data to evaluate.
+    Weight rationale
+    ----------------
+    is_new_device (0.25)
+        The single strongest ATO indicator. Fraudsters always operate from
+        devices the victim has never used. No legitimate explanation reduces
+        this weight.
 
-    Returns:
-        An ATOVerdict instance with the agent's decision and reasoning.
+    geo_mismatch (0.20)
+        Login from a country or region inconsistent with account history.
+        Combined with a new device this approaches certainty.
 
-    Raises:
-        ValueError: If the LLM returns malformed or invalid JSON.
-        openai.OpenAIError: If the API call fails.
+    email_change_attempted (0.20)
+        The goal of most ATOs is credential takeover. An email change attempt
+        within the same session as a new-device login is near-conclusive.
+
+    immediate_high_value_action (0.15)
+        Fraudsters move fast to extract value before detection. A payout,
+        booking, or large purchase within 5 minutes of login is a strong
+        urgency signal.
+
+    password_change_attempted (0.10)
+        Like email change, but weighted slightly lower because legitimate
+        users also reset passwords after account recovery.
+
+    support_ticket_language_mismatch (0.05)
+        Writing style inconsistency is a soft signal -- useful corroboration
+        but too noisy to carry heavy weight alone.
+
+    dormant_account_reactivated (0.05)
+        An account inactive for 30+ days suddenly logging in with other risk
+        signals present is consistent with credential-stuffing use of old
+        leaked passwords.
     """
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    contributions: list[tuple[str, float]] = []
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        temperature=0,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": build_user_message(signals)},
-        ],
+    if signals.is_new_device:
+        contributions.append(("is_new_device", 0.25))
+
+    if signals.geo_mismatch:
+        contributions.append(("geo_mismatch", 0.20))
+
+    if signals.email_change_attempted:
+        contributions.append(("email_change_attempted", 0.20))
+
+    if signals.immediate_high_value_action:
+        contributions.append(("immediate_high_value_action", 0.15))
+
+    if signals.password_change_attempted:
+        contributions.append(("password_change_attempted", 0.10))
+
+    if not signals.support_ticket_language_match:
+        contributions.append(("support_ticket_language_mismatch", 0.05))
+
+    if signals.time_since_last_login_days > 30:
+        contributions.append(("dormant_account_reactivated", 0.05))
+
+    total_signals = 7
+    score = min(sum(c for _, c in contributions), 1.0)
+    top = sorted(contributions, key=lambda x: x[1], reverse=True)[:3]
+    primary_signals = [name for name, _ in top] or ["no_risk_signals_detected"]
+
+    return SpecialistScore(
+        score=round(score, 4),
+        primary_signals=primary_signals,
+        signals_evaluated=total_signals,
     )
-
-    raw = response.choices[0].message.content.strip()
-    # Strip markdown code fences if the model wraps the response anyway
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"ATO Agent returned invalid JSON:\n{raw}") from e
-
-    return ATOVerdict(**data)

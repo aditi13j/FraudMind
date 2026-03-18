@@ -1,148 +1,100 @@
 """
-Promo Agent -- Version 2
+Promo Specialist Scorer -- v2 architecture
 
-Detects incentive abuse including trial fraud, self-referral rings, coupon stacking,
-and cancel-after-export patterns. Receives PromoSignals and returns a PromoVerdict.
+Deterministic Python scoring function. No LLM calls.
+Takes PromoSignals, applies weighted rules, returns SpecialistScore.
 """
 
-import json
-import os
-
-from dotenv import load_dotenv
-from openai import OpenAI
-
-from src.schemas.promo_schemas import PromoSignals, PromoVerdict
-
-load_dotenv()
-
-SYSTEM_PROMPT = """You are a promotional fraud detection agent.
-
-Your job is to evaluate a promo code redemption and decide whether it represents
-legitimate incentive use or intentional abuse of the platform's promotional system.
-
-## Verdicts and when to use them
-
-- **allow** -- High confidence this is a legitimate redemption. Account is mature,
-  low promo usage history, no device or IP overlap with other promo accounts, no
-  suspicious referral patterns. Confidence typically > 0.80.
-
-- **block** -- High confidence this is abuse. Multiple strong signals present
-  (e.g. self-referral via shared device + immediate payout request + multiple
-  promo uses on a brand-new account). Confidence typically > 0.85.
-
-- **step_up** -- Borderline case. One or two mild risk signals present but not
-  enough to block. Require additional account verification before allowing the
-  promo benefit to be applied or withdrawn.
-
-- **escalate** -- Unusual promo pattern that does not fit a clear abuse profile
-  but is too suspicious to allow. Route to the promotions fraud team for review.
-
-## How to reason
-
-1. Self-referral is the clearest single signal. device_shared_with_referrer = True
-   means the referring and referred accounts are controlled by the same person or
-   device. This alone warrants block in most cases, especially with a recent referrer.
-
-2. Immediate payout after promo is the cancel-after-export pattern. payout_requested_immediately
-   combined with order_cancelled_after_promo is a near-certain block.
-
-3. New accounts with high promo use are inherently suspicious. account_age_days < 7
-   with promo_uses_this_account > 3 suggests the account was created specifically
-   to exploit promotions.
-
-4. Device and IP clustering across promo accounts reveals rings. accounts_linked_same_device > 3
-   or accounts_linked_same_ip > 5 indicates organized promo abuse, not coincidence.
-
-5. Email domain patterns expose synthetic account farms. email_domain_pattern_suspicious = True
-   combined with device clustering is strong evidence of coordinated abuse.
-
-6. A very young referrer account (referrer_account_age_days < 30) that has already
-   cashed out referral credit is a clear referral ring signal.
-
-7. Single signals in isolation are weak. A mature account using a promo for the first
-   time with no clustering signals is almost always legitimate.
-
-8. Set confidence to reflect certainty. Reserve > 0.90 for clear-cut cases.
-9. Pick the 2-3 signals that most influenced your decision.
-
-## Output format
-
-Respond with a JSON object that exactly matches this schema:
-{
-  "verdict": "block" | "allow" | "step_up" | "escalate",
-  "confidence": <float 0.0--1.0>,
-  "primary_signals": [<2-3 signal names as strings>],
-  "reasoning": "<plain English explanation>",
-  "recommended_action": "<what the platform should do next>"
-}
-
-Respond with JSON only. No preamble, no markdown, no explanation outside the JSON.
-"""
+from src.schemas.promo_schemas import PromoSignals
+from src.schemas.specialist_score import SpecialistScore
 
 
-def build_user_message(signals: PromoSignals) -> str:
-    """Convert a PromoSignals instance into a plain-text prompt for the LLM."""
-    referrer_info = (
-        f"{signals.referrer_account_id} (age: {signals.referrer_account_age_days}d)"
-        if signals.referrer_account_id
-        else "None"
-    )
-    return f"""Evaluate the following promo redemption for incentive abuse:
-
-Account ID:                          {signals.account_id}
-Promo code:                          {signals.promo_code}
-Promo type:                          {signals.promo_type}
-Account age (days):                  {signals.account_age_days}
-First order:                         {signals.is_first_order}
-Total promos used (this account):    {signals.promo_uses_this_account}
-Uses of this specific code:          {signals.promo_uses_same_code}
-Accounts sharing device (this code): {signals.accounts_linked_same_device}
-Accounts sharing IP (this code):     {signals.accounts_linked_same_ip}
-Referrer:                            {referrer_info}
-Device shared with referrer:         {signals.device_shared_with_referrer}
-Email domain pattern suspicious:     {signals.email_domain_pattern_suspicious}
-Prior orders cancelled after promo:  {signals.order_cancelled_after_promo}
-Payout requested immediately:        {signals.payout_requested_immediately}
-
-Return your verdict as a JSON object matching the schema described in your instructions."""
-
-
-def run_promo_agent(signals: PromoSignals) -> PromoVerdict:
+def score_promo(signals: PromoSignals) -> SpecialistScore:
     """
-    Run the Promo Agent on a set of promo redemption signals.
+    Score a promo redemption for incentive abuse risk.
 
-    Args:
-        signals: A PromoSignals instance containing the redemption data to evaluate.
+    Weight rationale
+    ----------------
+    device_shared_with_referrer (0.30)
+        The clearest self-referral signal. Two accounts sharing a device
+        and a referral relationship are overwhelmingly operated by the same
+        person. Near-conclusive on its own.
 
-    Returns:
-        A PromoVerdict instance with the agent's decision and reasoning.
+    payout_requested_immediately (0.25)
+        Requesting a payout or credit export within 10 minutes of promo
+        redemption is the canonical cancel-after-export pattern. Legitimate
+        users explore the platform; fraudsters extract value and leave.
 
-    Raises:
-        ValueError: If the LLM returns malformed or invalid JSON.
-        openai.OpenAIError: If the API call fails.
+    order_cancelled_after_promo (0.20)
+        Prior orders cancelled post-redemption is historical evidence of
+        the same pattern. Multiple occurrences on one account are definitive.
+
+    accounts_linked_same_device (up to 0.12)
+        Multiple accounts using this promo code from the same device reveals
+        an organized ring, not coincidence. Graduated:
+        >= 5 = 0.12, >= 3 = 0.08, >= 2 = 0.04.
+
+    new_account_high_promo_use (0.08)
+        Account under 7 days old with more than 3 promo uses is created
+        specifically to exploit incentives, not to use the platform.
+
+    email_domain_pattern_suspicious (0.06)
+        Synthetic email variation patterns (user+1@, user+2@) reveal
+        deliberate account farm construction.
+
+    young_referrer_account (0.05)
+        A referrer account under 14 days old has not established legitimacy.
+        Combined with device sharing, this confirms a self-referral ring.
+
+    promo_uses_same_code (up to 0.04)
+        Using the same specific code more than once suggests probing or
+        systematic abuse rather than accidental re-use.
+        >= 3 = 0.04, >= 2 = 0.02.
     """
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    contributions: list[tuple[str, float]] = []
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        temperature=0,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": build_user_message(signals)},
-        ],
+    if signals.device_shared_with_referrer:
+        contributions.append(("device_shared_with_referrer", 0.30))
+
+    if signals.payout_requested_immediately:
+        contributions.append(("payout_requested_immediately", 0.25))
+
+    if signals.order_cancelled_after_promo:
+        contributions.append(("order_cancelled_after_promo", 0.20))
+
+    # Device clustering -- graduated
+    dev = signals.accounts_linked_same_device
+    if dev >= 5:
+        contributions.append(("accounts_linked_same_device", 0.12))
+    elif dev >= 3:
+        contributions.append(("accounts_linked_same_device", 0.08))
+    elif dev >= 2:
+        contributions.append(("accounts_linked_same_device", 0.04))
+
+    if signals.account_age_days < 7 and signals.promo_uses_this_account > 3:
+        contributions.append(("new_account_high_promo_use", 0.08))
+
+    if signals.email_domain_pattern_suspicious:
+        contributions.append(("email_domain_pattern_suspicious", 0.06))
+
+    ref_age = signals.referrer_account_age_days
+    if ref_age is not None and ref_age < 14:
+        contributions.append(("young_referrer_account", 0.05))
+
+    # Repeat use of same code -- graduated
+    same_code = signals.promo_uses_same_code
+    if same_code >= 3:
+        contributions.append(("promo_uses_same_code", 0.04))
+    elif same_code >= 2:
+        contributions.append(("promo_uses_same_code", 0.02))
+
+    total_signals = 8
+    score = min(sum(c for _, c in contributions), 1.0)
+    top = sorted(contributions, key=lambda x: x[1], reverse=True)[:3]
+    primary_signals = [name for name, _ in top] or ["no_risk_signals_detected"]
+
+    return SpecialistScore(
+        score=round(score, 4),
+        primary_signals=primary_signals,
+        signals_evaluated=total_signals,
     )
-
-    raw = response.choices[0].message.content.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Promo Agent returned invalid JSON:\n{raw}") from e
-
-    return PromoVerdict(**data)

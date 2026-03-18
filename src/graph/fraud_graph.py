@@ -24,19 +24,20 @@ from langgraph.graph import END, StateGraph
 from langgraph.types import Send
 from typing_extensions import TypedDict
 
-from src.agents.ato_agent import run_ato_agent
-from src.agents.identity_agent import run_identity_agent
-from src.agents.payload_agent import run_payload_agent
-from src.agents.payment_agent import run_payment_agent
-from src.agents.promo_agent import run_promo_agent
-from src.agents.ring_detection_agent import run_ring_detection_agent
-from src.schemas.ato_schemas import ATOVerdict, MockATOSignals
+from src.agents.ato_agent import score_ato
+from src.agents.identity_agent import score_identity
+from src.agents.payload_agent import score_payload
+from src.agents.payment_agent import score_payment
+from src.agents.promo_agent import score_promo
+from src.agents.ring_detection_agent import score_ring
+from src.schemas.ato_schemas import MockATOSignals
 from src.schemas.final_schemas import FinalVerdict
-from src.schemas.identity_schemas import IdentitySignals, IdentityVerdict
-from src.schemas.payload_schemas import PayloadSignals, PayloadVerdict
-from src.schemas.payment_schemas import PaymentSignals, PaymentVerdict
-from src.schemas.promo_schemas import PromoSignals, PromoVerdict
-from src.schemas.ring_schemas import RingSignals, RingVerdict
+from src.schemas.identity_schemas import IdentitySignals
+from src.schemas.payload_schemas import PayloadSignals
+from src.schemas.payment_schemas import PaymentSignals
+from src.schemas.promo_schemas import PromoSignals
+from src.schemas.ring_schemas import RingSignals
+from src.schemas.specialist_score import SpecialistScore
 
 
 # ---------------------------------------------------------------------------
@@ -76,13 +77,13 @@ class FraudState(TypedDict, total=False):
     ring_signals: Optional[RingSignals]
     payload_signals: Optional[PayloadSignals]
 
-    # Output verdicts per specialist
-    ato_verdict: Optional[ATOVerdict]
-    payment_verdict: Optional[PaymentVerdict]
-    identity_verdict: Optional[IdentityVerdict]
-    promo_verdict: Optional[PromoVerdict]
-    ring_verdict: Optional[RingVerdict]
-    payload_verdict: Optional[PayloadVerdict]
+    # Output scores per specialist (SpecialistScore: score, primary_signals, signals_evaluated)
+    ato_score: Optional[SpecialistScore]
+    payment_score: Optional[SpecialistScore]
+    identity_score: Optional[SpecialistScore]
+    promo_score: Optional[SpecialistScore]
+    ring_score: Optional[SpecialistScore]
+    payload_score: Optional[SpecialistScore]
 
     # Post-council (Version 4)
     red_team_challenge: Optional[str]
@@ -161,70 +162,70 @@ def route_to_specialists(state: FraudState) -> list[Send]:
 # ---------------------------------------------------------------------------
 
 def ato_node(state: FraudState) -> dict:
-    """Run the ATO Agent. Returns ato_verdict or marks agent unavailable on failure."""
+    """Run the ATO scorer. Returns ato_score or records failure."""
     signals: Optional[MockATOSignals] = state.get("ato_signals")
     if signals is None:
         return {}
     try:
-        return {"ato_verdict": run_ato_agent(signals)}
+        return {"ato_score": score_ato(signals)}
     except Exception as e:
         return {"failed_agents": [f"ato: {e}"]}
 
 
 def payment_node(state: FraudState) -> dict:
-    """Run the Payment Agent. Returns payment_verdict or marks agent unavailable on failure."""
+    """Run the Payment scorer. Returns payment_score or records failure."""
     signals: Optional[PaymentSignals] = state.get("payment_signals")
     if signals is None:
         return {}
     try:
-        return {"payment_verdict": run_payment_agent(signals)}
+        return {"payment_score": score_payment(signals)}
     except Exception as e:
         return {"failed_agents": [f"payment: {e}"]}
 
 
 def identity_node(state: FraudState) -> dict:
-    """Run the Identity Agent. Returns identity_verdict or marks agent unavailable on failure."""
+    """Run the Identity scorer. Returns identity_score or records failure."""
     signals: Optional[IdentitySignals] = state.get("identity_signals")
     if signals is None:
         return {}
     try:
-        return {"identity_verdict": run_identity_agent(signals)}
+        return {"identity_score": score_identity(signals)}
     except Exception as e:
         return {"failed_agents": [f"identity: {e}"]}
 
 
 def promo_node(state: FraudState) -> dict:
-    """Run the Promo Agent. Returns promo_verdict or marks agent unavailable on failure."""
+    """Run the Promo scorer. Returns promo_score or records failure."""
     signals: Optional[PromoSignals] = state.get("promo_signals")
     if signals is None:
         return {}
     try:
-        return {"promo_verdict": run_promo_agent(signals)}
+        return {"promo_score": score_promo(signals)}
     except Exception as e:
         return {"failed_agents": [f"promo: {e}"]}
 
 
 def ring_node(state: FraudState) -> dict:
     """
-    Run the Ring Detection Agent. This node always runs if ring_signals are present.
-    Returns ring_verdict or marks agent unavailable on failure.
+    Run the Ring Detection scorer. This node always runs if ring_signals are present.
+    Returns ring_score or records failure.
     """
     signals: Optional[RingSignals] = state.get("ring_signals")
     if signals is None:
         return {}
     try:
-        return {"ring_verdict": run_ring_detection_agent(signals)}
+        return {"ring_score": score_ring(signals)}
     except Exception as e:
         return {"failed_agents": [f"ring: {e}"]}
 
 
 def payload_node(state: FraudState) -> dict:
-    """Run the Payload Agent. Returns payload_verdict or marks agent unavailable on failure."""
+    """Run the Payload scorer. Returns payload_score or records failure."""
     signals: Optional[PayloadSignals] = state.get("payload_signals")
     if signals is None:
         return {}
     try:
-        return {"payload_verdict": run_payload_agent(signals)}
+        return {"payload_score": score_payload(signals)}
     except Exception as e:
         return {"failed_agents": [f"payload: {e}"]}
 

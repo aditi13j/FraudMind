@@ -1,136 +1,102 @@
 """
-Payment Agent -- Version 1
+Payment Specialist Scorer -- v2 architecture
 
-Single-agent, single-LLM-call implementation. Receives payment signals as a
-PaymentSignals instance and returns a structured PaymentVerdict.
+Deterministic Python scoring function. No LLM calls.
+Takes PaymentSignals, applies weighted rules, returns SpecialistScore.
 """
 
-import json
-import os
+from src.schemas.payment_schemas import PaymentSignals
+from src.schemas.specialist_score import SpecialistScore
 
-from dotenv import load_dotenv
-from openai import OpenAI
-
-from src.schemas.payment_schemas import PaymentSignals, PaymentVerdict
-
-load_dotenv()
-
-SYSTEM_PROMPT = """You are a payment fraud detection agent.
-
-Your job is to evaluate transaction signals and decide whether a payment is
-legitimate, fraudulent, or requires additional verification or human review.
-
-## Verdicts and when to use them
-
-- **allow** -- High confidence this is a legitimate transaction. Normal amount,
-  known geography, low velocity, no unusual merchant category. Confidence typically > 0.80.
-
-- **block** -- High confidence this is fraud. Multiple strong signals present
-  (e.g. extreme velocity + far above average amount + international + new account).
-  Confidence typically > 0.85.
-
-- **escalate** -- Transaction is unusual enough to warrant human review but not
-  clear-cut fraud. Use when signals are mixed or the pattern is unfamiliar.
-
-- **step_up** -- Borderline case. Request additional cardholder verification
-  (e.g. OTP, 3DS challenge) before authorizing. Use when one or two signals
-  are elevated but context is ambiguous.
-
-## How to reason
-
-1. Identify elevated signals: high amount-to-average ratio, high velocity in
-   the last hour or 24 hours, international merchant, card-not-present,
-   first transaction, very new account, high-risk merchant category.
-2. Weigh them together -- a single elevated signal is usually not enough to decline.
-3. Consider context: a 3x average transaction from a 2-year-old account traveling
-   internationally is less alarming than the same amount from a 2-day-old account.
-4. Amount context: evaluate amount relative to the account's average transaction
-   amount. Flag as elevated if the current amount is > 3x the account average OR
-   > $1000 on an account with no prior transactions over $200 (i.e. avg <= $200
-   and amount > $1000). An elevated amount alone is not grounds to block, but
-   combined with other signals it significantly increases risk.
-5. High-risk merchant categories include: cryptocurrency, wire transfer, gift cards,
-   gaming top-ups. Moderate-risk: electronics, luxury goods, travel.
-6. Velocity is a strong signal -- more than 5 transactions in 1 hour is unusual
-   for most consumer accounts.
-7. Card-not-present combined with a high amount and international merchant is a
-   common fraud pattern.
-8. Set confidence to reflect how certain you are. Reserve > 0.90 for clear-cut cases.
-9. Pick the 2-3 signals that most influenced your decision.
-
-## Output format
-
-Respond with a JSON object that exactly matches this schema:
-{
-  "verdict": "block" | "allow" | "step_up" | "escalate",
-  "confidence": <float 0.0--1.0>,
-  "primary_signals": [<2-3 signal names as strings>],
-  "reasoning": "<plain English explanation>",
-  "recommended_action": "<what the platform should do next>"
-}
-
-Respond with JSON only. No preamble, no markdown, no explanation outside the JSON.
-"""
+_HIGH_RISK_CATEGORIES = {"cryptocurrency", "wire_transfer", "gift_cards", "gaming_topup"}
+_MEDIUM_RISK_CATEGORIES = {"electronics", "luxury", "travel"}
 
 
-def build_user_message(signals: PaymentSignals) -> str:
-    """Convert a PaymentSignals instance into a plain-text prompt for the LLM."""
-    return f"""Evaluate the following transaction for payment fraud:
-
-Transaction ID:               {signals.transaction_id}
-Account ID:                   {signals.account_id}
-Amount (USD):                 ${signals.amount_usd:.2f}
-Merchant category:            {signals.merchant_category}
-Merchant country:             {signals.merchant_country}
-Account home country:         {signals.account_home_country}
-International transaction:    {signals.is_international}
-Transactions last 1 hour:     {signals.transactions_last_1h}
-Transactions last 24 hours:   {signals.transactions_last_24h}
-30-day avg transaction:       ${signals.avg_transaction_amount_30d:.2f}
-Amount vs avg ratio:          {signals.amount_vs_avg_ratio:.2f}x
-First transaction ever:       {signals.is_first_transaction}
-Card present:                 {signals.card_present}
-Account age (days):           {signals.days_since_account_creation}
-
-Return your verdict as a JSON object matching the schema described in your instructions."""
-
-
-def run_payment_agent(signals: PaymentSignals) -> PaymentVerdict:
+def score_payment(signals: PaymentSignals) -> SpecialistScore:
     """
-    Run the Payment Agent on a set of transaction signals.
+    Score a transaction for payment fraud risk.
 
-    Args:
-        signals: A PaymentSignals instance containing the transaction data to evaluate.
+    Weight rationale
+    ----------------
+    amount_vs_avg_ratio (up to 0.25)
+        The most reliable single fraud signal in payment data. Fraudsters
+        using stolen cards maximize spend immediately. Graduated:
+        >= 10x = 0.25, >= 5x = 0.18, >= 3x = 0.12, >= 2x = 0.06.
 
-    Returns:
-        A PaymentVerdict instance with the agent's decision and reasoning.
+    velocity_last_1h (up to 0.20)
+        Card testing and rapid spend-out produce bursts within one hour.
+        Graduated: >= 10 = 0.20, >= 7 = 0.14, >= 5 = 0.08, >= 3 = 0.04.
 
-    Raises:
-        ValueError: If the LLM returns malformed or invalid JSON.
-        openai.OpenAIError: If the API call fails.
+    is_international (0.15)
+        Cross-border card-not-present transactions have significantly higher
+        fraud rates. Combined with amount anomaly this is a strong pair.
+
+    not card_present (0.10)
+        Card-not-present (online) transactions can't verify the physical card.
+        Lower weight than amount because CNP is common in legitimate e-commerce.
+
+    new_account (0.10)
+        Accounts under 30 days old have not established spending patterns.
+        Fraudsters create throwaway accounts to burn stolen card details.
+
+    is_first_transaction (0.10)
+        The first transaction on any account is the highest-risk moment.
+        There is no baseline to compare against.
+
+    merchant_category_risk (0.05 or 0.10)
+        High-risk categories (crypto, gift cards, wire transfer, gaming topups)
+        are preferred by fraudsters for their liquidity and irreversibility.
+        Medium-risk categories (electronics, luxury, travel) carry a lower premium.
     """
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    contributions: list[tuple[str, float]] = []
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        temperature=0,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": build_user_message(signals)},
-        ],
+    # Amount vs average ratio -- graduated
+    ratio = signals.amount_vs_avg_ratio
+    if ratio >= 10:
+        contributions.append(("amount_vs_avg_ratio", 0.25))
+    elif ratio >= 5:
+        contributions.append(("amount_vs_avg_ratio", 0.18))
+    elif ratio >= 3:
+        contributions.append(("amount_vs_avg_ratio", 0.12))
+    elif ratio >= 2:
+        contributions.append(("amount_vs_avg_ratio", 0.06))
+
+    # Velocity in last hour -- graduated
+    v1h = signals.transactions_last_1h
+    if v1h >= 10:
+        contributions.append(("velocity_last_1h", 0.20))
+    elif v1h >= 7:
+        contributions.append(("velocity_last_1h", 0.14))
+    elif v1h >= 5:
+        contributions.append(("velocity_last_1h", 0.08))
+    elif v1h >= 3:
+        contributions.append(("velocity_last_1h", 0.04))
+
+    if signals.is_international:
+        contributions.append(("is_international", 0.15))
+
+    if not signals.card_present:
+        contributions.append(("card_not_present", 0.10))
+
+    if signals.days_since_account_creation < 30:
+        contributions.append(("new_account", 0.10))
+
+    if signals.is_first_transaction:
+        contributions.append(("is_first_transaction", 0.10))
+
+    cat = signals.merchant_category.lower()
+    if cat in _HIGH_RISK_CATEGORIES:
+        contributions.append(("high_risk_merchant_category", 0.10))
+    elif cat in _MEDIUM_RISK_CATEGORIES:
+        contributions.append(("medium_risk_merchant_category", 0.05))
+
+    total_signals = 7
+    score = min(sum(c for _, c in contributions), 1.0)
+    top = sorted(contributions, key=lambda x: x[1], reverse=True)[:3]
+    primary_signals = [name for name, _ in top] or ["no_risk_signals_detected"]
+
+    return SpecialistScore(
+        score=round(score, 4),
+        primary_signals=primary_signals,
+        signals_evaluated=total_signals,
     )
-
-    raw = response.choices[0].message.content.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Payment Agent returned invalid JSON:\n{raw}") from e
-
-    return PaymentVerdict(**data)
