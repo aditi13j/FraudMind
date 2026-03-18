@@ -51,8 +51,9 @@ class FraudState(TypedDict, total=False):
     of signals. Multi-entity identification fields match the architecture.md
     canonical FraudState definition.
 
-    agents_unavailable uses an Annotated reducer so that multiple parallel
+    failed_agents uses an Annotated reducer so that multiple parallel
     nodes can each append failure entries without overwriting each other.
+    Each entry is a string of the form "agent_name: error message".
     """
 
     # Multi-entity identification
@@ -88,7 +89,7 @@ class FraudState(TypedDict, total=False):
     final_verdict: Optional[FinalVerdict]
 
     # Operational metadata
-    agents_unavailable: Annotated[list[str], operator.add]
+    failed_agents: Annotated[list[str], operator.add]
     investigation_start_time: Optional[str]
 
 
@@ -166,8 +167,8 @@ def ato_node(state: FraudState) -> dict:
         return {}
     try:
         return {"ato_verdict": run_ato_agent(signals)}
-    except Exception:
-        return {"agents_unavailable": ["ato"]}
+    except Exception as e:
+        return {"failed_agents": [f"ato: {e}"]}
 
 
 def payment_node(state: FraudState) -> dict:
@@ -177,8 +178,8 @@ def payment_node(state: FraudState) -> dict:
         return {}
     try:
         return {"payment_verdict": run_payment_agent(signals)}
-    except Exception:
-        return {"agents_unavailable": ["payment"]}
+    except Exception as e:
+        return {"failed_agents": [f"payment: {e}"]}
 
 
 def identity_node(state: FraudState) -> dict:
@@ -188,8 +189,8 @@ def identity_node(state: FraudState) -> dict:
         return {}
     try:
         return {"identity_verdict": run_identity_agent(signals)}
-    except Exception:
-        return {"agents_unavailable": ["identity"]}
+    except Exception as e:
+        return {"failed_agents": [f"identity: {e}"]}
 
 
 def promo_node(state: FraudState) -> dict:
@@ -199,8 +200,8 @@ def promo_node(state: FraudState) -> dict:
         return {}
     try:
         return {"promo_verdict": run_promo_agent(signals)}
-    except Exception:
-        return {"agents_unavailable": ["promo"]}
+    except Exception as e:
+        return {"failed_agents": [f"promo: {e}"]}
 
 
 def ring_node(state: FraudState) -> dict:
@@ -213,8 +214,8 @@ def ring_node(state: FraudState) -> dict:
         return {}
     try:
         return {"ring_verdict": run_ring_detection_agent(signals)}
-    except Exception:
-        return {"agents_unavailable": ["ring"]}
+    except Exception as e:
+        return {"failed_agents": [f"ring: {e}"]}
 
 
 def payload_node(state: FraudState) -> dict:
@@ -224,8 +225,8 @@ def payload_node(state: FraudState) -> dict:
         return {}
     try:
         return {"payload_verdict": run_payload_agent(signals)}
-    except Exception:
-        return {"agents_unavailable": ["payload"]}
+    except Exception as e:
+        return {"failed_agents": [f"payload: {e}"]}
 
 
 def council_join(state: FraudState) -> dict:

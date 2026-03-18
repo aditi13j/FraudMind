@@ -154,7 +154,7 @@ class FraudState(TypedDict, total=False):
     final_verdict: Optional[FinalVerdict]
 
     # Operational metadata
-    agents_unavailable: list[str]
+    failed_agents: list[str]   # entries are "agent_name: error message"
     investigation_start_time: Optional[str]
 ```
 
