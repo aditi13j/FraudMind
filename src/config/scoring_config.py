@@ -48,3 +48,17 @@ ESCALATE_THRESHOLD: float = 0.55
 # warrants adversarial scrutiny before issuing a block verdict.
 
 RED_TEAM_VARIANCE_THRESHOLD: float = 0.25
+
+# ---------------------------------------------------------------------------
+# Async trigger reasons
+# ---------------------------------------------------------------------------
+# Fixed enum of trigger_reason strings used by _decide_async_trigger in
+# arbiter.py. Defined here so downstream systems (Learning System, dashboards)
+# can query against a known set of values rather than free text.
+
+TRIGGER_REASONS: list[str] = [
+    "high_risk_multi_domain",    # block with >= 3 specialists and aggregate > 0.85
+    "conflicting_signals",       # escalate, or step_up with stddev > threshold
+    "novel_pattern_candidate",   # block but fewer than 3 specialists ran
+    "novel_allow_pattern",       # allow but aggregate >= 0.15 (unexpectedly borderline)
+]

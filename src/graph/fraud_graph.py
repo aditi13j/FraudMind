@@ -1,12 +1,12 @@
 """
-FraudMind LangGraph Graph -- Version 2, Milestone 2
+FraudMind LangGraph Graph -- Version 2, Milestone 3
 
 Six specialist agents run in parallel with conditional routing.
 Ring Detection always runs regardless of routing tier.
 
 Graph flow:
     START --> set_routing_tier --> [parallel fan-out via Send] --> council_join
-          --> risk_aggregation --> END
+          --> risk_aggregation --> arbiter --> END
 
 Routing tiers (set routing_tier in input state before invoking):
     fast         -- Ring Detection only (single-domain, high prior confidence)
@@ -39,6 +39,8 @@ from src.schemas.payment_schemas import PaymentSignals
 from src.schemas.promo_schemas import PromoSignals
 from src.schemas.ring_schemas import RingSignals
 from src.aggregation.risk_aggregation import aggregate_scores
+from src.arbiter.arbiter import run_arbiter
+from src.schemas.arbiter_output import ArbiterOutput
 from src.schemas.risk_vector import RiskVector
 from src.schemas.specialist_score import SpecialistScore
 
@@ -91,7 +93,10 @@ class FraudState(TypedDict, total=False):
     # Risk aggregation (Milestone 2)
     risk_vector: Optional[RiskVector]
 
-    # Post-council (Milestone 3+)
+    # Arbiter verdict (Milestone 3)
+    arbiter_output: Optional[ArbiterOutput]
+
+    # Post-council (future milestones)
     red_team_challenge: Optional[str]
     final_verdict: Optional[FinalVerdict]
 
@@ -271,17 +276,48 @@ def risk_aggregation_node(state: FraudState) -> dict:
         return {"failed_agents": [f"risk_aggregation: {e}"]}
 
 
+def arbiter_node(state: FraudState) -> dict:
+    """
+    Produce the final verdict from the RiskVector.
+
+    Applies three-tier logic: deterministic block/allow for clear-cut cases,
+    GPT-4o LLM synthesis for everything in between. Falls back to escalate
+    on LLM timeout. Stores the result as arbiter_output in state.
+
+    If no risk_vector is present (all specialists failed), records the
+    failure and returns without an arbiter_output.
+    """
+    risk_vector: Optional[RiskVector] = state.get("risk_vector")
+    if risk_vector is None:
+        return {"failed_agents": ["arbiter: no risk_vector available"]}
+
+    specialist_scores: dict[str, Optional[SpecialistScore]] = {
+        "ato":      state.get("ato_score"),
+        "payment":  state.get("payment_score"),
+        "identity": state.get("identity_score"),
+        "promo":    state.get("promo_score"),
+        "ring":     state.get("ring_score"),
+        "payload":  state.get("payload_score"),
+    }
+
+    try:
+        output = run_arbiter(risk_vector, specialist_scores)
+        return {"arbiter_output": output}
+    except Exception as e:
+        return {"failed_agents": [f"arbiter: {e}"]}
+
+
 # ---------------------------------------------------------------------------
 # Graph assembly
 # ---------------------------------------------------------------------------
 
 def build_fraud_graph() -> StateGraph:
     """
-    Build and compile the Version 2 fraud graph (Milestone 2).
+    Build and compile the Version 2 fraud graph (Milestone 3).
 
     Topology:
         START → set_routing_tier → [parallel: ato, payment, identity, promo, ring, payload]
-                                 → council_join → risk_aggregation → END
+                                 → council_join → risk_aggregation → arbiter → END
 
     Returns:
         A compiled LangGraph StateGraph ready to invoke.
@@ -297,6 +333,7 @@ def build_fraud_graph() -> StateGraph:
     graph.add_node("payload", payload_node)
     graph.add_node("council_join", council_join)
     graph.add_node("risk_aggregation", risk_aggregation_node)
+    graph.add_node("arbiter", arbiter_node)
 
     graph.set_entry_point("set_routing_tier")
     graph.add_conditional_edges("set_routing_tier", route_to_specialists)
@@ -305,7 +342,8 @@ def build_fraud_graph() -> StateGraph:
         graph.add_edge(specialist, "council_join")
 
     graph.add_edge("council_join", "risk_aggregation")
-    graph.add_edge("risk_aggregation", END)
+    graph.add_edge("risk_aggregation", "arbiter")
+    graph.add_edge("arbiter", END)
 
     return graph.compile()
 
