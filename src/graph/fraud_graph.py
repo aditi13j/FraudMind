@@ -1,11 +1,12 @@
 """
-FraudMind LangGraph Graph -- Version 2
+FraudMind LangGraph Graph -- Version 2, Milestone 2
 
 Six specialist agents run in parallel with conditional routing.
 Ring Detection always runs regardless of routing tier.
 
 Graph flow:
-    START --> set_routing_tier --> [parallel fan-out via Send] --> council_join --> END
+    START --> set_routing_tier --> [parallel fan-out via Send] --> council_join
+          --> risk_aggregation --> END
 
 Routing tiers (set routing_tier in input state before invoking):
     fast         -- Ring Detection only (single-domain, high prior confidence)
@@ -37,6 +38,8 @@ from src.schemas.payload_schemas import PayloadSignals
 from src.schemas.payment_schemas import PaymentSignals
 from src.schemas.promo_schemas import PromoSignals
 from src.schemas.ring_schemas import RingSignals
+from src.aggregation.risk_aggregation import aggregate_scores
+from src.schemas.risk_vector import RiskVector
 from src.schemas.specialist_score import SpecialistScore
 
 
@@ -85,7 +88,10 @@ class FraudState(TypedDict, total=False):
     ring_score: Optional[SpecialistScore]
     payload_score: Optional[SpecialistScore]
 
-    # Post-council (Version 4)
+    # Risk aggregation (Milestone 2)
+    risk_vector: Optional[RiskVector]
+
+    # Post-council (Milestone 3+)
     red_team_challenge: Optional[str]
     final_verdict: Optional[FinalVerdict]
 
@@ -235,10 +241,34 @@ def council_join(state: FraudState) -> dict:
     Fan-in convergence node. All parallel specialist branches terminate here.
 
     This node is invoked once per completing parallel branch and runs a final
-    time when all branches have finished. No state mutations are needed here
-    in Version 2 -- the Arbiter Agent (Version 4) will synthesize verdicts.
+    time when all branches have finished. Passes control to risk_aggregation.
     """
     return {}
+
+
+def risk_aggregation_node(state: FraudState) -> dict:
+    """
+    Aggregate all available specialist scores into a single RiskVector.
+
+    Reads whichever specialist scores are present in state (None scores are
+    excluded), computes a weighted aggregate, standard deviation, and identifies
+    the dominant domain. Stores the result as risk_vector in state.
+
+    If no specialist scores are available (e.g. all failed), records the
+    failure and returns without a risk_vector.
+    """
+    try:
+        risk_vector = aggregate_scores(
+            ato_score=state.get("ato_score"),
+            payment_score=state.get("payment_score"),
+            identity_score=state.get("identity_score"),
+            promo_score=state.get("promo_score"),
+            ring_score=state.get("ring_score"),
+            payload_score=state.get("payload_score"),
+        )
+        return {"risk_vector": risk_vector}
+    except Exception as e:
+        return {"failed_agents": [f"risk_aggregation: {e}"]}
 
 
 # ---------------------------------------------------------------------------
@@ -247,11 +277,11 @@ def council_join(state: FraudState) -> dict:
 
 def build_fraud_graph() -> StateGraph:
     """
-    Build and compile the Version 2 fraud graph.
+    Build and compile the Version 2 fraud graph (Milestone 2).
 
     Topology:
         START → set_routing_tier → [parallel: ato, payment, identity, promo, ring, payload]
-                                 → council_join → END
+                                 → council_join → risk_aggregation → END
 
     Returns:
         A compiled LangGraph StateGraph ready to invoke.
@@ -266,6 +296,7 @@ def build_fraud_graph() -> StateGraph:
     graph.add_node("ring", ring_node)
     graph.add_node("payload", payload_node)
     graph.add_node("council_join", council_join)
+    graph.add_node("risk_aggregation", risk_aggregation_node)
 
     graph.set_entry_point("set_routing_tier")
     graph.add_conditional_edges("set_routing_tier", route_to_specialists)
@@ -273,7 +304,8 @@ def build_fraud_graph() -> StateGraph:
     for specialist in ("ato", "payment", "identity", "promo", "ring", "payload"):
         graph.add_edge(specialist, "council_join")
 
-    graph.add_edge("council_join", END)
+    graph.add_edge("council_join", "risk_aggregation")
+    graph.add_edge("risk_aggregation", END)
 
     return graph.compile()
 
