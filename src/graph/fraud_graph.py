@@ -57,12 +57,12 @@ class FraudState(TypedDict, total=False):
 
     # Multi-entity identification
     primary_entity_id: str
-    primary_entity_type: str          # "user" | "passenger" | "driver" | "merchant"
+    primary_entity_type: str          # "account" | "buyer" | "seller" | "merchant" | "user"
     counterparty_id: Optional[str]
     transaction_id: Optional[str]
     device_id: Optional[str]
     payment_method_id: Optional[str]
-    event_type: str                   # "login" | "payment" | "ride_request" | "signup"
+    event_type: str                   # "authentication" | "transaction" | "onboarding" | "profile_update"
 
     # Routing metadata
     routing_tier: Optional[str]       # "fast" | "standard" | "full_council"

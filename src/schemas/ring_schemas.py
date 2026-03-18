@@ -22,7 +22,7 @@ class RingSignals(BaseModel):
 
     primary_entity_id: str = Field(..., description="The account or entity that is the primary subject of investigation")
     primary_entity_type: str = Field(
-        ..., description="Entity type: 'user', 'passenger', 'driver', or 'merchant'"
+        ..., description="Entity type: 'account', 'buyer', 'seller', 'merchant', or 'user'"
     )
     device_id: str = Field(..., description="Device fingerprint for this session")
     ip_address_hash: str = Field(..., description="Hashed IP address used for cross-entity linking (not the raw IP)")
