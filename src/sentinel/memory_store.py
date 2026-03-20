@@ -87,6 +87,17 @@ class MemoryStore:
         scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
         return [r for _, _, r in scored[:limit]]
 
+    def update_analyst_verdict(self, case_id: str, verdict: str) -> None:
+        """Set analyst_verdict on a record by case_id."""
+        records = self._load_all()
+        for r in records:
+            if r.get("case_id") == case_id:
+                r["analyst_verdict"] = verdict
+                break
+        self._path.write_text(
+            json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+
     def load_record(self, case_id: str) -> Optional[InvestigationRecord]:
         """Return a single record by case_id, or None if not found."""
         for r in self._load_all():

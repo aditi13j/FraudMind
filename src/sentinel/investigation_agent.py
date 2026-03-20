@@ -258,6 +258,7 @@ def run_investigation(
 
     record = InvestigationRecord(
         case_id=str(uuid.uuid4()),
+        entity_id=entity_id,
         arbiter_verdict=arbiter_output.verdict,
         arbiter_confidence=arbiter_output.confidence,
         trigger_reason=arbiter_output.trigger_reason,
