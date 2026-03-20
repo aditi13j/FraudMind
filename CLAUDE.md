@@ -1,29 +1,61 @@
-Implement P0 feedback before building Rule Proposer:
+Build Milestone 6 — Rule Proposer.
 
-1. Add a hard_rules_check() function in src/rules/hard_rules.py
-   Pure Python. No LLM. Runs before specialists.
-   Returns: HardRuleResult(matched: bool, rule_name: str, verdict: str)
-   
-   Initial rules:
-   - known_bot: tls_fingerprint_known_bot AND user_agent_is_headless → block
-   - confirmed_ring: known_ring_signature_match AND 
-     linked_accounts_with_fraud_confirmed >= 2 → block
-   - extreme_velocity: transactions_last_1h >= 20 → block
-   - trusted_account: account_age_days > 730 AND not is_new_device 
-     AND not geo_mismatch AND amount_vs_avg_ratio < 1.5 → allow
+New files:
+  src/sentinel/rule_proposer.py
+  src/schemas/rule_proposal.py
+  data/rule_proposals.json  (created automatically)
 
-2. Add rule_name: Optional[str] to ArbiterOutput schema
+RuleProposal schema (src/schemas/rule_proposal.py):
+  proposal_id: str (uuid)
+  pattern_tags: list[str]
+  pattern_count: int
+  pattern_finding_type: str
+  rule_type: Literal["hard_rule", "weight_adjustment", "sentinel_filter"]
+  rule_name: str
+  description: str  (plain English, one sentence)
+  proposed_change: dict
+  expected_impact: str  (one sentence)
+  risk: str  (one sentence)
+  status: Literal["pending", "approved", "rejected"] = "pending"
+  created_at: str
 
-3. In arbiter.py populate rule_name:
-   - Deterministic block: rule_name = "high_aggregate_block"
-   - Deterministic allow: rule_name = "low_aggregate_allow"  
-   - LLM synthesis: rule_name = "llm_synthesis"
-   - Timeout fallback: rule_name = "llm_timeout_escalate"
+Rule Proposer function (src/sentinel/rule_proposer.py):
+  propose_rule(finding: PatternFinding) -> RuleProposal
 
-4. Add hard_rules_node to fraud_graph.py
-   Runs BEFORE specialists
-   If matched: write verdict to state, skip specialists
-   If not matched: continue to specialists as normal
+One LLM call (GPT-4o, temperature=0).
 
-Do not change specialist scoring logic.
-Do not change RiskVector schema.
+System prompt:
+  You are a fraud rule engineer.
+  You receive a pattern finding from recent fraud investigations.
+  Propose one specific rule change to address this pattern.
+  
+  Rule types:
+  hard_rule — add a new instant block/allow condition to hard_rules.py
+  weight_adjustment — change a weight in scoring_config.py  
+  sentinel_filter — change when Sentinel investigation triggers
+  
+  Choose hard_rule for false_positive_cluster findings
+  Choose weight_adjustment for emerging_fraud with high count
+  Choose sentinel_filter for high volume low-value patterns
+  
+  Output JSON only:
+  {
+    "rule_type": "...",
+    "rule_name": "short_snake_case_name",
+    "description": "plain English one sentence",
+    "proposed_change": {...specific change dict...},
+    "expected_impact": "one sentence",
+    "risk": "one sentence"
+  }
+
+Also create a ProposalStore class (in rule_proposer.py):
+  save(proposal: RuleProposal) -> None
+  load_pending() -> list[RuleProposal]
+  update_status(proposal_id: str, status: str) -> None
+  (same JSON file pattern as MemoryStore)
+
+Create notebooks/milestone6_rule_proposer_demo.ipynb:
+  Run pattern detection on stored records
+  For each PatternFinding run propose_rule()
+  Print all proposals in readable format
+  Show: rule_type, rule_name, description, proposed_change
