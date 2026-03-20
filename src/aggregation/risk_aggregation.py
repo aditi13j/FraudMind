@@ -73,11 +73,16 @@ def aggregate_scores(
     aggregate = sum(normalized_weights[domain] * score for domain, score in available.items())
     aggregate = round(min(aggregate, 1.0), 4)
 
-    # Standard deviation across available scores (population std dev)
+    # Standard deviation across available scores (population std dev).
+    # None when only one specialist ran: there is no cross-domain variance to measure,
+    # and 0.0 would be misleading (it implies agreement, not absence of data).
     score_values = list(available.values())
-    mean = sum(score_values) / len(score_values)
-    variance = sum((s - mean) ** 2 for s in score_values) / len(score_values)
-    score_stddev = round(math.sqrt(variance), 4)
+    if len(score_values) >= 2:
+        mean = sum(score_values) / len(score_values)
+        variance = sum((s - mean) ** 2 for s in score_values) / len(score_values)
+        score_stddev: Optional[float] = round(math.sqrt(variance), 4)
+    else:
+        score_stddev = None
 
     # Dominant domain
     dominant_domain = max(available, key=lambda d: available[d])

@@ -5,6 +5,8 @@ Produced after all specialist scores are collected and synthesized.
 Consumed by the Arbiter Agent (Milestone 3).
 """
 
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -28,11 +30,12 @@ class RiskVector(BaseModel):
             "This is the primary input to the Arbiter verdict decision."
         ),
     )
-    score_stddev: float = Field(
-        ...,
+    score_stddev: Optional[float] = Field(
+        None,
         ge=0.0,
         description=(
             "Standard deviation of specialist scores across available domains. "
+            "None when only one specialist ran (no cross-domain variance to measure). "
             "High values indicate specialist disagreement and may trigger Red Team review."
         ),
     )

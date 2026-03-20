@@ -1,11 +1,14 @@
 """
-FraudMind LangGraph Graph -- Version 2, Milestone 3
+FraudMind LangGraph Graph -- Version 2, Milestone 3 + P0 hard rules
 
 Graph flow:
-    START --> [parallel: ato, payment, identity, promo, ring, payload]
-          --> council_join --> risk_aggregation --> arbiter --> END
+    START --> hard_rules
+              ├── matched  --> END  (verdict set directly, no scoring)
+              └── no match --> [parallel: ato, payment, identity, promo, ring, payload]
+                              --> council_join --> risk_aggregation --> arbiter --> END
 
-All six specialists run in parallel. Only those with signals present execute.
+Hard rules run first. If a rule matches, the graph short-circuits to END
+without invoking any specialist, aggregation, or LLM.
 """
 
 import operator
@@ -23,6 +26,7 @@ from src.agents.promo_agent import score_promo
 from src.agents.ring_detection_agent import score_ring
 from src.aggregation.risk_aggregation import aggregate_scores
 from src.arbiter.arbiter import run_arbiter
+from src.rules.hard_rules import hard_rules_check
 from src.schemas.arbiter_output import ArbiterOutput
 from src.schemas.ato_schemas import MockATOSignals
 from src.schemas.identity_schemas import IdentitySignals
@@ -111,6 +115,62 @@ def route_to_specialists(state: FraudState) -> list[Send]:
 
 
 # ---------------------------------------------------------------------------
+# Hard rules node
+# ---------------------------------------------------------------------------
+
+_HARD_RULE_EVIDENCE: dict[str, list[str]] = {
+    "confirmed_ring":    ["known_ring_signature_match", "linked_accounts_with_fraud_confirmed"],
+    "known_bot":         ["tls_fingerprint_known_bot", "user_agent_is_headless"],
+    "extreme_velocity":  ["transactions_last_1h"],
+    "trusted_account":   ["account_age_days", "known_device", "home_geography", "normal_spend_ratio"],
+}
+
+_HARD_RULE_REASONING: dict[str, str] = {
+    "confirmed_ring":   "Entity matches a confirmed fraud ring signature with multiple fraud-linked accounts. No scoring required.",
+    "known_bot":        "TLS fingerprint and headless browser both confirm automated session. No scoring required.",
+    "extreme_velocity": "20+ transactions in one hour indicates card testing. No scoring required.",
+    "trusted_account":  "Account over 730 days old on a known device, home geography, and normal spend ratio. No scoring required.",
+}
+
+_HARD_RULE_CONFIDENCE: dict[str, float] = {
+    "confirmed_ring":   0.98,
+    "known_bot":        0.95,
+    "extreme_velocity": 0.90,
+    "trusted_account":  0.92,
+}
+
+
+def hard_rules_node(state: FraudState) -> dict:
+    """
+    Evaluate hard rules before any specialist scoring.
+    If a rule matches, sets arbiter_output directly and the graph routes to END.
+    If no rule matches, returns {} and the graph continues to specialists.
+    """
+    result = hard_rules_check(state)
+    if not result.matched:
+        return {}
+
+    return {
+        "arbiter_output": ArbiterOutput(
+            verdict=result.verdict,
+            confidence=_HARD_RULE_CONFIDENCE[result.rule_name],
+            reasoning=_HARD_RULE_REASONING[result.rule_name],
+            evidence=_HARD_RULE_EVIDENCE[result.rule_name],
+            trigger_async=False,
+            trigger_reason=None,
+            rule_name=result.rule_name,
+        )
+    }
+
+
+def _route_after_hard_rules(state: FraudState):
+    """Short-circuit to END if a hard rule already produced a verdict."""
+    if state.get("arbiter_output") is not None:
+        return END
+    return route_to_specialists(state)
+
+
+# ---------------------------------------------------------------------------
 # Pipeline nodes
 # ---------------------------------------------------------------------------
 
@@ -154,6 +214,8 @@ def arbiter_node(state: FraudState) -> dict:
 def build_fraud_graph() -> StateGraph:
     graph = StateGraph(FraudState)
 
+    graph.add_node("hard_rules", hard_rules_node)
+
     for name, (scorer_fn, signals_key, score_key) in _SPECIALISTS.items():
         graph.add_node(name, _make_specialist_node(name, scorer_fn, signals_key, score_key))
 
@@ -161,7 +223,8 @@ def build_fraud_graph() -> StateGraph:
     graph.add_node("risk_aggregation", risk_aggregation_node)
     graph.add_node("arbiter", arbiter_node)
 
-    graph.add_conditional_edges(START, route_to_specialists)
+    graph.add_edge(START, "hard_rules")
+    graph.add_conditional_edges("hard_rules", _route_after_hard_rules)
 
     for name in _SPECIALISTS:
         graph.add_edge(name, "council_join")

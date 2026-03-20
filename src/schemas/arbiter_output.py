@@ -44,3 +44,12 @@ class ArbiterOutput(BaseModel):
         None,
         description="Why trigger_async was set to True. None when trigger_async is False.",
     )
+    rule_name: Optional[str] = Field(
+        None,
+        description=(
+            "The rule or path that produced this verdict. Hard rules use their rule name "
+            "(confirmed_ring, known_bot, extreme_velocity, trusted_account). "
+            "Scoring paths use: high_aggregate_block, low_aggregate_allow, "
+            "llm_synthesis, llm_timeout_escalate."
+        ),
+    )

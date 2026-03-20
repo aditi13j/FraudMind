@@ -2,15 +2,17 @@
 Arbiter -- Milestone 3
 
 The only verdict producer in FraudMind v2. Reads the RiskVector produced
-by risk aggregation and issues a final verdict via three-tier logic:
+by risk aggregation and issues a final verdict via four-tier logic:
 
-    HIGH confidence (deterministic, no LLM):
-        aggregate > 0.85 AND specialists_run >= 3  →  block
+    DETERMINISTIC (no LLM):
+        aggregate > 0.70 AND specialists_run >= 3  →  block
         aggregate < 0.15                           →  allow
+        score_stddev > 0.25                        →  escalate  (specialists disagree)
+        specialists_run < 3                        →  escalate  (thin evidence)
 
-    MEDIUM confidence (LLM synthesis):
-        everything else  →  GPT-4o call, temperature=0, 500ms timeout
-                            fallback to escalate on timeout
+    LLM synthesis (genuinely ambiguous cases only):
+        0.15 ≤ aggregate ≤ 0.70, stddev ≤ 0.25, specialists_run ≥ 3
+        GPT-4o, temperature=0, 500ms timeout, fallback to escalate on timeout
 
 Only the Arbiter makes LLM calls. Specialist scorers remain pure Python.
 """
@@ -23,6 +25,7 @@ from dotenv import load_dotenv
 from openai import APITimeoutError, OpenAI
 
 from src.config.scoring_config import (
+    ALLOW_THRESHOLD,
     BLOCK_THRESHOLD,
     RED_TEAM_VARIANCE_THRESHOLD,
     TRIGGER_REASONS,
@@ -37,7 +40,6 @@ load_dotenv()
 # Deterministic thresholds
 # ---------------------------------------------------------------------------
 
-_ALLOW_THRESHOLD = 0.15          # aggregate below this → allow, no LLM
 _MIN_SPECIALISTS_FOR_BLOCK = 3   # need at least 3 domains to hard-block
 
 
@@ -96,15 +98,8 @@ Respond with a JSON object exactly matching this schema:
   "verdict": "block" | "allow" | "step_up" | "escalate",
   "confidence": <float 0.0 to 1.0>,
   "reasoning": "<2 to 4 sentences explaining the verdict>",
-  "evidence": ["<signal 1>", "<signal 2>", ...],
-  "trigger_async": <true | false>,
-  "trigger_reason": "<why async was triggered>" | null
+  "evidence": ["<signal 1>", "<signal 2>", ...]
 }
-
-Set trigger_async to true if any of these apply:
-  verdict is escalate
-  score_stddev > 0.25 (specialists strongly disagree)
-  dominant_score > 0.70 but specialists_run < 3 (strong signal, thin evidence)
 
 Respond with JSON only. No preamble, no markdown, no explanation outside the JSON.\
 """
@@ -115,10 +110,15 @@ def _build_user_message(
     specialist_scores: dict[str, Optional[SpecialistScore]],
 ) -> str:
     """Construct the user-turn prompt from the RiskVector and specialist scores."""
+    stddev_str = (
+        f"{risk_vector.score_stddev:.4f}"
+        if risk_vector.score_stddev is not None
+        else "N/A (single specialist)"
+    )
     lines: list[str] = [
         "Risk Vector:",
         f"  aggregate       : {risk_vector.aggregate:.4f}",
-        f"  score_stddev    : {risk_vector.score_stddev:.4f}",
+        f"  score_stddev    : {stddev_str}",
         f"  specialists_run : {risk_vector.specialists_run}",
         f"  dominant_domain : {risk_vector.dominant_domain} ({risk_vector.dominant_score:.4f})",
         f"  available_domains: {', '.join(risk_vector.available_domains)}",
@@ -181,26 +181,25 @@ def _decide_async_trigger(
         block   + specialists_run < 3           → True,  "novel_pattern_candidate"
         escalate                                → True,  "conflicting_signals"
     """
-    _HIGH_RISK_MULTI_DOMAIN = TRIGGER_REASONS[0]   # "high_risk_multi_domain"
-    _CONFLICTING_SIGNALS    = TRIGGER_REASONS[1]   # "conflicting_signals"
-    _NOVEL_PATTERN          = TRIGGER_REASONS[2]   # "novel_pattern_candidate"
-    _NOVEL_ALLOW            = TRIGGER_REASONS[3]   # "novel_allow_pattern"
+    _CONFLICTING_SIGNALS = TRIGGER_REASONS[0]   # "conflicting_signals"
+    _NOVEL_PATTERN       = TRIGGER_REASONS[1]   # "novel_pattern_candidate"
+    _NOVEL_ALLOW         = TRIGGER_REASONS[2]   # "novel_allow_pattern"
 
     if verdict == "allow":
-        if risk_vector.aggregate < _ALLOW_THRESHOLD:
+        if risk_vector.aggregate < ALLOW_THRESHOLD:
             return False, None
         return True, _NOVEL_ALLOW
 
     if verdict == "step_up":
         if risk_vector.specialists_run < _MIN_SPECIALISTS_FOR_BLOCK:
             return False, None
-        if risk_vector.score_stddev > RED_TEAM_VARIANCE_THRESHOLD:
+        if risk_vector.score_stddev is not None and risk_vector.score_stddev > RED_TEAM_VARIANCE_THRESHOLD:
             return True, _CONFLICTING_SIGNALS
         return False, None
 
     if verdict == "block":
         if risk_vector.specialists_run >= _MIN_SPECIALISTS_FOR_BLOCK and risk_vector.aggregate > BLOCK_THRESHOLD:
-            return True, _HIGH_RISK_MULTI_DOMAIN
+            return False, None  # consensus block — no investigation needed
         return True, _NOVEL_PATTERN
 
     # escalate (and any future verdict not matched above)
@@ -224,6 +223,7 @@ def _timeout_fallback(risk_vector: RiskVector) -> ArbiterOutput:
         evidence=[],
         trigger_async=trigger_async,
         trigger_reason=trigger_reason,
+        rule_name="llm_timeout_escalate",
     )
 
 
@@ -273,10 +273,11 @@ def run_arbiter(
             evidence=evidence,
             trigger_async=trigger_async,
             trigger_reason=trigger_reason,
+            rule_name="high_aggregate_block",
         )
 
     # --- Deterministic: hard allow ---
-    if risk_vector.aggregate < _ALLOW_THRESHOLD:
+    if risk_vector.aggregate < ALLOW_THRESHOLD:
         trigger_async, trigger_reason = _decide_async_trigger("allow", risk_vector)
         return ArbiterOutput(
             verdict="allow",
@@ -288,9 +289,46 @@ def run_arbiter(
             evidence=["no_risk_signals_detected"],
             trigger_async=trigger_async,
             trigger_reason=trigger_reason,
+            rule_name="low_aggregate_allow",
         )
 
-    # --- LLM synthesis ---
+    # --- Deterministic: escalate on specialist disagreement ---
+    if risk_vector.score_stddev > RED_TEAM_VARIANCE_THRESHOLD:
+        evidence = _collect_evidence(specialist_scores)
+        trigger_async, trigger_reason = _decide_async_trigger("escalate", risk_vector)
+        return ArbiterOutput(
+            verdict="escalate",
+            confidence=round(1.0 - risk_vector.score_stddev, 4),
+            reasoning=(
+                f"Specialist disagreement too high to issue an automated verdict "
+                f"(stddev={risk_vector.score_stddev:.4f}, threshold={RED_TEAM_VARIANCE_THRESHOLD}). "
+                f"Routing to human review."
+            ),
+            evidence=evidence,
+            trigger_async=trigger_async,
+            trigger_reason=trigger_reason,
+            rule_name="high_variance_escalate",
+        )
+
+    # --- Deterministic: escalate on thin evidence ---
+    if risk_vector.specialists_run < _MIN_SPECIALISTS_FOR_BLOCK:
+        evidence = _collect_evidence(specialist_scores)
+        trigger_async, trigger_reason = _decide_async_trigger("escalate", risk_vector)
+        return ArbiterOutput(
+            verdict="escalate",
+            confidence=round(1.0 - risk_vector.aggregate, 4),
+            reasoning=(
+                f"Only {risk_vector.specialists_run} specialist domain(s) ran. "
+                f"Insufficient corroboration to issue an automated verdict. "
+                f"Routing to human review."
+            ),
+            evidence=evidence,
+            trigger_async=trigger_async,
+            trigger_reason=trigger_reason,
+            rule_name="thin_evidence_escalate",
+        )
+
+    # --- LLM synthesis (genuinely ambiguous: moderate aggregate, specialists agree, sufficient evidence) ---
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     user_message = _build_user_message(risk_vector, specialist_scores)
 
@@ -314,15 +352,16 @@ def run_arbiter(
     except json.JSONDecodeError as exc:
         raise ValueError(f"Arbiter returned invalid JSON:\n{raw}") from exc
 
-    # The LLM sets trigger_async based on its own reasoning, but we enforce
-    # the policy on top to ensure trigger_reason is always a valid TRIGGER_REASONS
-    # string and no policy condition is missed.
-    output = ArbiterOutput(**data)
-    forced_trigger, forced_reason = _decide_async_trigger(output.verdict, risk_vector)
-    if forced_trigger:
-        output = output.model_copy(update={
-            "trigger_async": True,
-            "trigger_reason": forced_reason,
-        })
-
-    return output
+    # trigger_async and trigger_reason are always determined by deterministic policy,
+    # not the LLM. The LLM is only responsible for verdict, confidence, reasoning,
+    # and evidence. This keeps the trigger contract auditable and consistent.
+    trigger_async, trigger_reason = _decide_async_trigger(data["verdict"], risk_vector)
+    return ArbiterOutput(
+        verdict=data["verdict"],
+        confidence=data["confidence"],
+        reasoning=data["reasoning"],
+        evidence=data["evidence"],
+        trigger_async=trigger_async,
+        trigger_reason=trigger_reason,
+        rule_name="llm_synthesis",
+    )

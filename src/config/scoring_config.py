@@ -36,8 +36,7 @@ DOMAIN_WEIGHTS: dict[str, float] = {
 # this file.
 
 BLOCK_THRESHOLD: float = 0.70
-STEP_UP_THRESHOLD: float = 0.40
-ESCALATE_THRESHOLD: float = 0.55
+ALLOW_THRESHOLD: float = 0.15   # aggregate below this → deterministic allow, no LLM
 
 # ---------------------------------------------------------------------------
 # Red Team trigger
@@ -57,8 +56,7 @@ RED_TEAM_VARIANCE_THRESHOLD: float = 0.25
 # can query against a known set of values rather than free text.
 
 TRIGGER_REASONS: list[str] = [
-    "high_risk_multi_domain",    # block with >= 3 specialists and aggregate > 0.85
-    "conflicting_signals",       # escalate, or step_up with stddev > threshold
+    "conflicting_signals",       # escalate — stddev too high or thin evidence
     "novel_pattern_candidate",   # block but fewer than 3 specialists ran
     "novel_allow_pattern",       # allow but aggregate >= 0.15 (unexpectedly borderline)
 ]

@@ -1,62 +1,29 @@
-Build Milestone 5B — Pattern Detection Agent.
+Implement P0 feedback before building Rule Proposer:
 
-New files:
-  src/sentinel/pattern_detection.py
-  src/schemas/pattern_finding.py
+1. Add a hard_rules_check() function in src/rules/hard_rules.py
+   Pure Python. No LLM. Runs before specialists.
+   Returns: HardRuleResult(matched: bool, rule_name: str, verdict: str)
+   
+   Initial rules:
+   - known_bot: tls_fingerprint_known_bot AND user_agent_is_headless → block
+   - confirmed_ring: known_ring_signature_match AND 
+     linked_accounts_with_fraud_confirmed >= 2 → block
+   - extreme_velocity: transactions_last_1h >= 20 → block
+   - trusted_account: account_age_days > 730 AND not is_new_device 
+     AND not geo_mismatch AND amount_vs_avg_ratio < 1.5 → allow
 
-PatternFinding schema (src/schemas/pattern_finding.py):
-  pattern_tags: list[str]
-  count: int
-  time_window_hours: int
-  assessment_distribution: dict[str, int]
-  dominant_verdict: str
-  suggestion: str
-  confidence: float
-  finding_type: Literal["emerging_fraud", "false_positive_cluster", "novel_pattern"]
-  detected_at: str  (ISO timestamp)
+2. Add rule_name: Optional[str] to ArbiterOutput schema
 
-Pattern Detection function (src/sentinel/pattern_detection.py):
-  run_pattern_detection(
-      time_window_hours: int = 48,
-      min_count: int = 2,
-      store: Optional[MemoryStore] = None
-  ) -> list[PatternFinding]
+3. In arbiter.py populate rule_name:
+   - Deterministic block: rule_name = "high_aggregate_block"
+   - Deterministic allow: rule_name = "low_aggregate_allow"  
+   - LLM synthesis: rule_name = "llm_synthesis"
+   - Timeout fallback: rule_name = "llm_timeout_escalate"
 
-Steps:
-1. Load all records from last time_window_hours (pure Python)
-2. Count tag co-occurrences across records (pure Python)
-   - For each pair of tags that appear together, count occurrences
-   - Also count single tags
-   - Only keep combinations appearing >= min_count times
-3. For each qualifying combination collect:
-   - assessment_distribution
-   - dominant_verdict
-   - list of case_ids
-4. One LLM call (GPT-4o, temperature=0) to synthesize:
-   - For each pattern: generate suggestion and finding_type
-   - Input: all qualifying patterns with their stats
-   - Output: list of PatternFindings with suggestion + finding_type filled in
-5. Return sorted by count descending
+4. Add hard_rules_node to fraud_graph.py
+   Runs BEFORE specialists
+   If matched: write verdict to state, skip specialists
+   If not matched: continue to specialists as normal
 
-LLM system prompt for Pattern Detection:
-You are a fraud pattern analyst.
-You receive tag co-occurrence statistics from recent investigations.
-For each pattern produce:
-  - suggestion: specific actionable recommendation (one sentence)
-  - finding_type: "emerging_fraud" | "false_positive_cluster" | "novel_pattern"
-Use finding_type = "false_positive_cluster" when 
-  assessment_distribution shows > 40% possible_false_positive
-Use finding_type = "emerging_fraud" when count is high 
-  and dominant_verdict is block with likely_correct assessment
-Use finding_type = "novel_pattern" for everything else
-Output JSON array only.
-
-Create notebooks/milestone5b_pattern_detection_demo.ipynb:
-- Run 3 different cases through full pipeline 
-  (ring attack, clean legitimate, ambiguous ATO)
-- All 3 go through Sentinel investigation
-- Then run pattern detection across all stored records
-- Print all PatternFindings
-- Show which finding_type each pattern gets
-
-Do not modify any existing files.
+Do not change specialist scoring logic.
+Do not change RiskVector schema.
