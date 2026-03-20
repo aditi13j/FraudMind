@@ -27,3 +27,10 @@ class InvestigationRecord(BaseModel):
     pattern_tags: list[str] = Field(..., description="Structured labels for case clustering. E.g. ring_fraud, bot_session, new_account.")
     assessment: str = Field(..., description="Sentinel's verdict assessment: correct, possible_false_positive, or uncertain.")
     created_at: str = Field(..., description="ISO 8601 timestamp of when the investigation was run.")
+    tool_trace: list[dict] = Field(
+        default_factory=list,
+        description=(
+            "Ordered log of tool calls made by the ReAct agent. "
+            "Each entry: tool_name, arguments, result_summary, call_order."
+        ),
+    )
