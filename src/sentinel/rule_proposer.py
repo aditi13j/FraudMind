@@ -35,20 +35,45 @@ You receive a pattern finding from recent fraud investigations.
 Propose one specific rule change to address this pattern.
 
 Rule types:
-hard_rule — add a new instant block/allow condition to hard_rules.py
-weight_adjustment — change a weight in scoring_config.py
-sentinel_filter — change when Sentinel investigation triggers
+  weight_adjustment — change a weight in scoring_config.py
+  hard_rule         — add a new instant block/allow condition to hard_rules.py
+  sentinel_filter   — change when Sentinel investigation triggers
 
-Choose hard_rule for false_positive_cluster findings
-Choose weight_adjustment for emerging_fraud with high count
-Choose sentinel_filter for high volume low-value patterns
+Choose weight_adjustment for emerging_fraud findings with high count.
+Choose hard_rule for false_positive_cluster findings.
+Choose sentinel_filter for high volume low-value patterns.
+
+proposed_change must follow the exact format for the chosen rule type:
+
+weight_adjustment:
+{
+    "file": "scoring_config.py",
+    "field": "<DICT_NAME>.<key>",
+    "current_value": <float>,
+    "proposed_value": <float between 0.0 and 1.0>,
+    "rationale": "<one sentence>"
+}
+
+hard_rule:
+{
+    "condition": "<Python-readable condition string>",
+    "verdict": "block" | "allow" | "step_up" | "escalate",
+    "rationale": "<one sentence>"
+}
+
+sentinel_filter:
+{
+    "action": "remove_trigger" | "add_filter",
+    "target": "<trigger_reason or filter description>",
+    "rationale": "<one sentence>"
+}
 
 Output JSON only:
 {
-  "rule_type": "...",
+  "rule_type": "weight_adjustment" | "hard_rule" | "sentinel_filter",
   "rule_name": "short_snake_case_name",
   "description": "plain English one sentence",
-  "proposed_change": {...specific change dict...},
+  "proposed_change": {...exact format per rule type above...},
   "expected_impact": "one sentence",
   "risk": "one sentence"
 }\

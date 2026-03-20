@@ -1,0 +1,1425 @@
+[
+  {
+    "proposal_id": "877315dd-b54b-4e24-ab04-63edbf16e8eb",
+    "pattern_tags": [
+      "new_account"
+    ],
+    "pattern_count": 4,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "new_account_verification_weight",
+    "description": "Increase the weight for new account verification to prevent potential fraud.",
+    "proposed_change": {
+      "new_account_verification_weight": 1.5
+    },
+    "expected_impact": "This change will enhance scrutiny on new accounts, reducing the likelihood of fraud.",
+    "risk": "There is a risk of increased false positives, potentially impacting legitimate new users.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:04.377478+00:00"
+  },
+  {
+    "proposal_id": "b35873b1-0f88-4117-ac69-e357a6e724e5",
+    "pattern_tags": [
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "ring_fraud_weight_increase",
+    "description": "Increase the weight for ring fraud patterns to better capture emerging fraud attempts.",
+    "proposed_change": {
+      "ring_fraud_weight": "+10"
+    },
+    "expected_impact": "This change will increase the likelihood of detecting and blocking ring fraud attempts.",
+    "risk": "There is a risk of increasing false positives if legitimate transactions are misclassified as ring fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:06.557631+00:00"
+  },
+  {
+    "proposal_id": "167f44c0-45c5-4f1e-99d8-2764bef61828",
+    "pattern_tags": [
+      "identity_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "identity_fraud_weight_increase",
+    "description": "Increase the weight for identity fraud patterns to better capture emerging fraud tactics.",
+    "proposed_change": {
+      "identity_fraud_weight": "+10"
+    },
+    "expected_impact": "This change will increase the likelihood of blocking transactions associated with identity fraud.",
+    "risk": "There is a risk of increasing false positives if legitimate transactions are misclassified as identity fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:09.013058+00:00"
+  },
+  {
+    "proposal_id": "3a3f70eb-9d81-41a1-b8d6-26fd554c6dd8",
+    "pattern_tags": [
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "multi_domain_convergence_monitoring",
+    "description": "Monitor multi-domain convergence patterns for signs of coordinated fraud activities.",
+    "proposed_change": {
+      "trigger_condition": "multi_domain_convergence",
+      "action": "increase_monitoring_frequency",
+      "threshold": 2
+    },
+    "expected_impact": "This will enhance detection of coordinated fraud activities across multiple domains.",
+    "risk": "There is a risk of increased false positives if legitimate multi-domain activities are misclassified.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:12.494555+00:00"
+  },
+  {
+    "proposal_id": "ca54489e-ca1a-4bd7-a491-b8726812e360",
+    "pattern_tags": [
+      "identity_fraud",
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_identity_ring_fraud_combo",
+    "description": "Block transactions that exhibit both identity fraud and ring fraud characteristics.",
+    "proposed_change": {
+      "condition": {
+        "fraud_types": [
+          "identity_fraud",
+          "ring_fraud"
+        ],
+        "action": "block"
+      }
+    },
+    "expected_impact": "This rule will block transactions that are highly likely to be fraudulent due to the combination of identity and ring fraud indicators.",
+    "risk": "There is a low risk of false positives as the pattern is novel and highly indicative of fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:14.849988+00:00"
+  },
+  {
+    "proposal_id": "528111f0-38a7-4775-b841-c841fb372180",
+    "pattern_tags": [
+      "new_account",
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "new_account_ring_fraud_weight_increase",
+    "description": "Increase the weight for transactions involving new accounts and ring fraud patterns.",
+    "proposed_change": {
+      "new_account_ring_fraud_weight": "+10"
+    },
+    "expected_impact": "This change will increase the likelihood of blocking fraudulent transactions involving new accounts and ring fraud patterns.",
+    "risk": "There is a risk of increasing false positives for legitimate new accounts that may exhibit similar patterns.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:18.330473+00:00"
+  },
+  {
+    "proposal_id": "ef867512-2dad-4540-a89c-8f10c1128434",
+    "pattern_tags": [
+      "multi_domain_convergence",
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "multi_domain_convergence_ring_fraud",
+    "description": "Increase the weight for transactions involving multi-domain convergence and ring fraud patterns.",
+    "proposed_change": {
+      "multi_domain_convergence_ring_fraud_weight": 1.5
+    },
+    "expected_impact": "This change will increase the likelihood of blocking transactions that exhibit both multi-domain convergence and ring fraud patterns.",
+    "risk": "There is a risk of increasing false positives if legitimate transactions are incorrectly identified as fraudulent due to these patterns.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:20.793711+00:00"
+  },
+  {
+    "proposal_id": "2354f573-7a46-48e3-aac2-130ee4e17840",
+    "pattern_tags": [
+      "identity_fraud",
+      "new_account"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "identity_verification_new_account",
+    "description": "Increase the weight for identity verification checks on new accounts.",
+    "proposed_change": {
+      "identity_verification_weight": 1.5
+    },
+    "expected_impact": "This change will enhance the detection of identity fraud in new account creations.",
+    "risk": "There is a potential for increased false positives, affecting legitimate new account creations.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:22.430008+00:00"
+  },
+  {
+    "proposal_id": "8dd90a61-db8f-47b2-8e00-45ad1ad03813",
+    "pattern_tags": [
+      "identity_fraud",
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "identity_fraud_multi_domain_monitor",
+    "description": "Monitor identity fraud patterns across multiple domains for coordinated fraud attempts.",
+    "proposed_change": {
+      "trigger_conditions": {
+        "pattern_tags": [
+          "identity_fraud",
+          "multi_domain_convergence"
+        ],
+        "time_window_hours": 8760,
+        "confidence_threshold": 0.9
+      }
+    },
+    "expected_impact": "This will enhance detection of coordinated fraud attempts across multiple domains.",
+    "risk": "There is a risk of increased false positives if legitimate multi-domain activities are misclassified.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:24.270932+00:00"
+  },
+  {
+    "proposal_id": "a1ee0211-028f-4447-9e30-cebf14b98d5b",
+    "pattern_tags": [
+      "multi_domain_convergence",
+      "new_account"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_multi_domain_new_account",
+    "description": "Block transactions from new accounts showing multi-domain convergence.",
+    "proposed_change": {
+      "condition": {
+        "account_age_days": "<= 7",
+        "domain_convergence": ">= 3"
+      },
+      "action": "block"
+    },
+    "expected_impact": "This will block fraudulent transactions from new accounts attempting to exploit multiple domains.",
+    "risk": "There is a risk of blocking legitimate new users who are using multiple domains for valid reasons.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:28.367307+00:00"
+  },
+  {
+    "proposal_id": "6e453d3a-79cf-4f0d-9201-04ba73db2788",
+    "pattern_tags": [
+      "account_factory"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "account_factory_monitoring",
+    "description": "Increase monitoring for 'account_factory' patterns to detect fraudulent account creation.",
+    "proposed_change": {
+      "pattern": "account_factory",
+      "action": "increase_monitoring",
+      "threshold": "lower"
+    },
+    "expected_impact": "This will allow for earlier detection of fraudulent account creation patterns.",
+    "risk": "There is a risk of increased false positives if legitimate account creation spikes.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:30.208609+00:00"
+  },
+  {
+    "proposal_id": "1c34e912-6f57-401a-a841-c7cb0bc0120e",
+    "pattern_tags": [
+      "high_confidence_block"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "high_confidence_block",
+    "description": "Block transactions that match the high confidence block pattern.",
+    "proposed_change": {
+      "condition": "transaction matches high_confidence_block pattern",
+      "action": "block"
+    },
+    "expected_impact": "This will prevent fraudulent transactions that match the high confidence block pattern from being processed.",
+    "risk": "There is a low risk of false positives due to the high confidence in the pattern's accuracy.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:32.566050+00:00"
+  },
+  {
+    "proposal_id": "f27caf56-29d6-4cc5-bb48-92730e945861",
+    "pattern_tags": [
+      "account_factory",
+      "ring_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "account_factory_ring_fraud_weight_increase",
+    "description": "Increase the weight for transactions involving both 'account_factory' and 'ring_fraud' patterns.",
+    "proposed_change": {
+      "pattern": "account_factory_ring_fraud",
+      "weight_increase": 10
+    },
+    "expected_impact": "This will increase the likelihood of blocking transactions that are part of organized fraud rings.",
+    "risk": "There is a risk of increasing false positives if legitimate transactions are mistakenly identified as part of these patterns.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:34.616924+00:00"
+  },
+  {
+    "proposal_id": "9d3b9eb1-53da-44f6-b4d3-b132ca6d1f93",
+    "pattern_tags": [
+      "high_confidence_block",
+      "ring_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_ring_fraud_patterns",
+    "description": "Block transactions identified with high confidence as part of ring fraud.",
+    "proposed_change": {
+      "condition": "transaction_pattern == 'ring_fraud' and confidence == 1.0",
+      "action": "block"
+    },
+    "expected_impact": "This will immediately block transactions that are part of a ring fraud pattern with high confidence.",
+    "risk": "There is minimal risk of false positives due to the high confidence level of the pattern.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:36.660455+00:00"
+  },
+  {
+    "proposal_id": "4ed66335-e579-4da9-a718-c61cd14f9f16",
+    "pattern_tags": [
+      "account_factory",
+      "identity_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "account_factory_identity_fraud_weight",
+    "description": "Increase the weight for transactions involving both 'account_factory' and 'identity_fraud' patterns.",
+    "proposed_change": {
+      "pattern": "account_factory_identity_fraud",
+      "weight_increase": 10
+    },
+    "expected_impact": "This will increase the likelihood of blocking transactions that involve both patterns.",
+    "risk": "There is a risk of increasing false positives if legitimate transactions are misclassified.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:39.428758+00:00"
+  },
+  {
+    "proposal_id": "144a1ff9-01d5-450e-8e44-30e05f456ef6",
+    "pattern_tags": [
+      "high_confidence_block",
+      "identity_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_high_confidence_identity_fraud",
+    "description": "Block transactions with high confidence of identity fraud.",
+    "proposed_change": {
+      "condition": "if transaction has high confidence of identity fraud then block"
+    },
+    "expected_impact": "This will prevent transactions that are highly likely to be fraudulent due to identity theft.",
+    "risk": "There is a minimal risk of false positives due to the high confidence level required for blocking.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:41.786951+00:00"
+  },
+  {
+    "proposal_id": "13494c0a-cdde-43c8-bbf8-3f12655ea3ce",
+    "pattern_tags": [
+      "account_factory",
+      "new_account"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "monitor_account_factory_new_account",
+    "description": "Increase monitoring for 'account_factory' and 'new_account' patterns to detect potential fraudulent account creation.",
+    "proposed_change": {
+      "trigger_conditions": {
+        "pattern_tags": [
+          "account_factory",
+          "new_account"
+        ],
+        "time_window_hours": 8760,
+        "threshold": 1
+      }
+    },
+    "expected_impact": "Enhanced detection of fraudulent account creation activities.",
+    "risk": "Potential increase in false positives if legitimate new accounts are misclassified.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:44.590559+00:00"
+  },
+  {
+    "proposal_id": "c0751f72-98d2-4c3a-8486-4e32284849dd",
+    "pattern_tags": [
+      "high_confidence_block",
+      "new_account"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_new_high_confidence_accounts",
+    "description": "Block new accounts that trigger high confidence fraud patterns.",
+    "proposed_change": {
+      "condition": "if account_age < 30 days and fraud_confidence_score > 0.9 then block"
+    },
+    "expected_impact": "This will prevent fraudulent activities from newly created accounts with high confidence fraud indicators.",
+    "risk": "There is a risk of blocking legitimate new accounts with high confidence scores, potentially affecting user experience.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:46.568074+00:00"
+  },
+  {
+    "proposal_id": "750ade27-29b1-4e06-b318-87d75aab2b17",
+    "pattern_tags": [
+      "account_factory",
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_account_factory_multi_domain",
+    "description": "Block transactions involving account factories with multi-domain convergence.",
+    "proposed_change": {
+      "condition": {
+        "account_behavior": "account_factory",
+        "domain_activity": "multi_domain_convergence"
+      },
+      "action": "block"
+    },
+    "expected_impact": "This will prevent fraudulent transactions from accounts exhibiting both account factory and multi-domain convergence behaviors.",
+    "risk": "There is a low risk of false positives as the pattern is highly indicative of fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:48.950853+00:00"
+  },
+  {
+    "proposal_id": "3d245274-0e1e-4954-be42-65cb3e32b5ed",
+    "pattern_tags": [
+      "account_factory",
+      "high_confidence_block"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_account_factory",
+    "description": "Block transactions from accounts identified as part of an account factory.",
+    "proposed_change": {
+      "condition": "if account_origin == 'account_factory'",
+      "action": "block"
+    },
+    "expected_impact": "This will prevent fraudulent transactions from accounts created in bulk by fraudsters.",
+    "risk": "There is a risk of blocking legitimate accounts if they are incorrectly identified as part of an account factory.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:50.841878+00:00"
+  },
+  {
+    "proposal_id": "18bf46c1-ff2e-4228-bdda-f7d60ec05fe0",
+    "pattern_tags": [
+      "high_confidence_block",
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "multi_domain_convergence_block",
+    "description": "Block transactions involving multi-domain convergence with high confidence.",
+    "proposed_change": {
+      "condition": "if transaction involves multi-domain convergence and high confidence block pattern, then block transaction"
+    },
+    "expected_impact": "This will prevent fraudulent transactions that exploit multi-domain convergence patterns.",
+    "risk": "There is a low risk of false positives due to the high confidence in the block pattern.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:54.479121+00:00"
+  },
+  {
+    "proposal_id": "6068887e-a425-4865-a461-c19c600fa556",
+    "pattern_tags": [
+      "ato"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "false_positive_cluster",
+    "rule_type": "hard_rule",
+    "rule_name": "ato_false_positive_adjustment",
+    "description": "Adjust detection criteria for 'ato' patterns to reduce false positives.",
+    "proposed_change": {
+      "condition": "if ato_pattern_detected and confidence_score < threshold",
+      "action": "allow"
+    },
+    "expected_impact": "This change will reduce the number of false positives for 'ato' patterns.",
+    "risk": "There is a risk of allowing some fraudulent 'ato' activities if the threshold is not set correctly.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:45:56.834186+00:00"
+  },
+  {
+    "proposal_id": "949d5dea-e338-43fc-89de-5d6e29585a2c",
+    "pattern_tags": [
+      "new_account"
+    ],
+    "pattern_count": 4,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "new_account_creation_review",
+    "description": "Add a review step for new account blocks to ensure accuracy and reduce false positives.",
+    "proposed_change": {
+      "condition": "new_account_creation",
+      "action": "review"
+    },
+    "expected_impact": "This change will reduce false positives by ensuring that new account blocks are reviewed for accuracy.",
+    "risk": "There is a risk of delaying legitimate account creation if the review process is not efficient.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:00.974818+00:00"
+  },
+  {
+    "proposal_id": "63c7be0e-d7d4-49ad-b19b-28c876350f16",
+    "pattern_tags": [
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "ring_fraud_weight_increase",
+    "description": "Increase the weight for ring fraud patterns to enhance detection.",
+    "proposed_change": {
+      "ring_fraud": {
+        "weight": 1.5
+      }
+    },
+    "expected_impact": "This change will improve the detection of ring fraud patterns by increasing their score.",
+    "risk": "There is a risk of increasing false positives if legitimate transactions are misclassified as ring fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:02.694036+00:00"
+  },
+  {
+    "proposal_id": "449713e6-4665-4f13-97bd-d2f135f762f9",
+    "pattern_tags": [
+      "identity_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "identity_fraud_weight_increase",
+    "description": "Increase the weight for identity fraud patterns to better capture emerging fraud.",
+    "proposed_change": {
+      "identity_fraud_weight": "+10"
+    },
+    "expected_impact": "This change will increase the likelihood of identifying and blocking identity fraud attempts.",
+    "risk": "There is a risk of increasing false positives if legitimate transactions are misclassified as identity fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:04.132664+00:00"
+  },
+  {
+    "proposal_id": "4f8db07c-c978-4880-8b4a-f57f3a3077ef",
+    "pattern_tags": [
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "multi_domain_convergence_monitoring",
+    "description": "Monitor multi-domain convergence patterns for signs of coordinated fraud attempts.",
+    "proposed_change": {
+      "pattern": "multi_domain_convergence",
+      "action": "trigger_sentinel_investigation",
+      "threshold": 2,
+      "time_window_hours": 24
+    },
+    "expected_impact": "This will increase monitoring of potential coordinated fraud attempts across multiple domains.",
+    "risk": "There is a risk of increased false positives if legitimate multi-domain activities are misinterpreted as fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:06.073317+00:00"
+  },
+  {
+    "proposal_id": "a8c064e4-ff20-4053-8bf8-3ed228bf8acf",
+    "pattern_tags": [
+      "identity_fraud",
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_identity_ring_fraud",
+    "description": "Block transactions that match both identity fraud and ring fraud patterns.",
+    "proposed_change": {
+      "condition": "if transaction matches both identity_fraud and ring_fraud patterns then block"
+    },
+    "expected_impact": "This will prevent organized fraud rings from exploiting identity fraud tactics.",
+    "risk": "There is a risk of false positives if legitimate transactions inadvertently match both patterns.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:07.709834+00:00"
+  },
+  {
+    "proposal_id": "39753ca5-0d5e-4e18-bd41-2fbbcd480088",
+    "pattern_tags": [
+      "new_account",
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "new_account_ring_fraud_weight",
+    "description": "Increase the weight for transactions involving new accounts and ring fraud patterns.",
+    "proposed_change": {
+      "new_account_ring_fraud_weight": 1.5
+    },
+    "expected_impact": "This change will increase the likelihood of blocking transactions associated with new accounts involved in ring fraud.",
+    "risk": "There is a risk of increasing false positives for legitimate new accounts that may resemble ring fraud patterns.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:09.457396+00:00"
+  },
+  {
+    "proposal_id": "20e3a4f3-077d-458a-a57b-98fc0a9ce9bd",
+    "pattern_tags": [
+      "multi_domain_convergence",
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "multi_domain_convergence_ring_fraud",
+    "description": "Increase the weight for transactions involving multi-domain convergence and ring fraud.",
+    "proposed_change": {
+      "multi_domain_convergence": {
+        "ring_fraud": {
+          "weight_increase": 0.2
+        }
+      }
+    },
+    "expected_impact": "This change will increase the likelihood of detecting cross-domain fraud activities.",
+    "risk": "There is a risk of increasing false positives if legitimate multi-domain activities are misclassified.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:11.051008+00:00"
+  },
+  {
+    "proposal_id": "16e46378-380a-4c6e-a9dd-e8f2738f9073",
+    "pattern_tags": [
+      "identity_fraud",
+      "new_account"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_identity_fraud_new_account",
+    "description": "Block new account creations associated with identity fraud patterns.",
+    "proposed_change": {
+      "condition": {
+        "event": "new_account_creation",
+        "tags": [
+          "identity_fraud"
+        ]
+      },
+      "action": "block"
+    },
+    "expected_impact": "This will prevent fraudulent new account creations linked to identity theft.",
+    "risk": "There is a risk of blocking legitimate new accounts if they are incorrectly tagged with identity fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:12.844339+00:00"
+  },
+  {
+    "proposal_id": "a7ca6489-8379-4187-b0c8-85ae913b7b53",
+    "pattern_tags": [
+      "identity_fraud",
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "identity_fraud_multi_domain_monitor",
+    "description": "Monitor identity fraud patterns involving multiple domain convergence for signs of complex fraud operations.",
+    "proposed_change": {
+      "trigger_conditions": {
+        "pattern_tags": [
+          "identity_fraud",
+          "multi_domain_convergence"
+        ],
+        "time_window_hours": 8760
+      },
+      "action": "initiate_investigation"
+    },
+    "expected_impact": "This will enhance detection of complex fraud operations involving identity fraud across multiple domains.",
+    "risk": "There is a risk of increased false positives due to the broad nature of multi-domain convergence.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:15.563271+00:00"
+  },
+  {
+    "proposal_id": "871cf61e-b45e-4a6b-8619-b8590ce63b26",
+    "pattern_tags": [
+      "multi_domain_convergence",
+      "new_account"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_multi_domain_new_account",
+    "description": "Block transactions from new accounts showing multi-domain convergence.",
+    "proposed_change": {
+      "condition": {
+        "account_age": "new",
+        "domain_convergence": "multi"
+      },
+      "action": "block"
+    },
+    "expected_impact": "This will prevent fraudulent transactions from new accounts attempting to exploit multiple domains.",
+    "risk": "There is a risk of blocking legitimate new users who are using multiple domains for valid reasons.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:17.133380+00:00"
+  },
+  {
+    "proposal_id": "d962eaba-0997-46dc-82bb-8e49e72591bf",
+    "pattern_tags": [
+      "account_factory"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "account_factory_monitoring",
+    "description": "Increase monitoring for 'account_factory' patterns to detect fraudulent account creation.",
+    "proposed_change": {
+      "trigger_condition": "account_factory",
+      "action": "increase_monitoring",
+      "threshold": "lower"
+    },
+    "expected_impact": "This will allow for earlier detection of fraudulent account creation patterns.",
+    "risk": "There is a risk of increased false positives if legitimate account creation spikes.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:18.933515+00:00"
+  },
+  {
+    "proposal_id": "33b6f1a4-7563-4148-9673-3c2b2a4a4431",
+    "pattern_tags": [
+      "high_confidence_block"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "high_confidence_block_verification",
+    "description": "Add a condition to verify high confidence block patterns for accuracy.",
+    "proposed_change": {
+      "condition": "if pattern_tag == 'high_confidence_block' and confidence == 1.0",
+      "action": "block"
+    },
+    "expected_impact": "This will ensure that patterns tagged as high confidence block are accurately blocking fraudulent activities.",
+    "risk": "There is a minimal risk of false positives if the pattern is not accurately defined.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:20.817298+00:00"
+  },
+  {
+    "proposal_id": "8b2214b1-3c8a-40d7-8e01-fbc6a60bcd11",
+    "pattern_tags": [
+      "account_factory",
+      "ring_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_account_factory_ring_fraud",
+    "description": "Block transactions from accounts identified as part of an account factory involved in ring fraud.",
+    "proposed_change": {
+      "condition": "if account_tag == 'account_factory' and fraud_tag == 'ring_fraud'",
+      "action": "block"
+    },
+    "expected_impact": "This will prevent transactions from accounts likely involved in mass account creation and fraud rings.",
+    "risk": "There is a risk of blocking legitimate accounts if they are incorrectly tagged as part of an account factory or fraud ring.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:23.172950+00:00"
+  },
+  {
+    "proposal_id": "c6c3d64d-4079-4f99-bf2d-2771396587bd",
+    "pattern_tags": [
+      "high_confidence_block",
+      "ring_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_ring_fraud_patterns",
+    "description": "Block transactions identified as part of ring fraud with high confidence.",
+    "proposed_change": {
+      "condition": "transaction_tag == 'ring_fraud' and confidence == 1.0",
+      "action": "block"
+    },
+    "expected_impact": "This will prevent transactions identified as part of ring fraud from being processed.",
+    "risk": "There is minimal risk as the confidence level is high and the pattern is well-defined.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:24.939644+00:00"
+  },
+  {
+    "proposal_id": "c629a54c-d4cf-48e5-8ea2-5d8c4a016964",
+    "pattern_tags": [
+      "account_factory",
+      "identity_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "account_factory_identity_fraud_weight",
+    "description": "Increase the weight for patterns involving 'account_factory' and 'identity_fraud' to better capture potential identity theft through mass account creation.",
+    "proposed_change": {
+      "pattern": "account_factory_identity_fraud",
+      "weight_increase": 10
+    },
+    "expected_impact": "This change will increase the likelihood of detecting and blocking fraudulent activities related to mass account creation using stolen identities.",
+    "risk": "There is a risk of increasing false positives if legitimate users are mistakenly flagged as part of an account factory.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:27.166761+00:00"
+  },
+  {
+    "proposal_id": "809bf415-5091-4496-85f7-e1afc714f185",
+    "pattern_tags": [
+      "high_confidence_block",
+      "identity_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_high_confidence_identity_fraud",
+    "description": "Block transactions with high confidence of identity fraud.",
+    "proposed_change": {
+      "condition": "if transaction has high_confidence_block and identity_fraud then block"
+    },
+    "expected_impact": "This will prevent transactions with a high likelihood of identity fraud from being processed.",
+    "risk": "There is minimal risk as the confidence in the block decision is high.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:28.939326+00:00"
+  },
+  {
+    "proposal_id": "fc5f2ae6-8bc0-472e-b161-af007c3e06a6",
+    "pattern_tags": [
+      "account_factory",
+      "new_account"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "monitor_account_factory_new_account",
+    "description": "Monitor 'account_factory' and 'new_account' for any increase in fraudulent account creation.",
+    "proposed_change": {
+      "trigger_conditions": {
+        "tags": [
+          "account_factory",
+          "new_account"
+        ],
+        "increase_threshold": 5,
+        "time_window_hours": 168
+      }
+    },
+    "expected_impact": "This will allow for early detection of any surge in fraudulent account creation activities.",
+    "risk": "There is a risk of increased false positives if legitimate new account creation spikes.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:31.159438+00:00"
+  },
+  {
+    "proposal_id": "37567ad1-30b5-427d-8be3-bdfd93c99cff",
+    "pattern_tags": [
+      "high_confidence_block",
+      "new_account"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_new_account_high_confidence",
+    "description": "Block new accounts with high confidence indicators of fraud.",
+    "proposed_change": {
+      "condition": {
+        "account_age": "< 1 day",
+        "fraud_indicator": "high_confidence"
+      },
+      "action": "block"
+    },
+    "expected_impact": "This will prevent fraudulent activities from new accounts with high confidence indicators.",
+    "risk": "There is a risk of blocking legitimate new accounts if the high confidence indicators are not accurate.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:33.001567+00:00"
+  },
+  {
+    "proposal_id": "e3aa7532-dcbe-4b0b-8e6a-2ef00b6d6b08",
+    "pattern_tags": [
+      "account_factory",
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_account_factory_multi_domain",
+    "description": "Block transactions from account factories showing multi-domain convergence.",
+    "proposed_change": {
+      "condition": "if account_origin == 'factory' and domain_convergence == 'multi'",
+      "action": "block"
+    },
+    "expected_impact": "This will prevent fraudulent activities originating from account factories that operate across multiple domains.",
+    "risk": "There is a risk of blocking legitimate multi-domain operations if they originate from account factories.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:35.154989+00:00"
+  },
+  {
+    "proposal_id": "85e2343a-e1d9-40c6-be6e-eb800ed27976",
+    "pattern_tags": [
+      "account_factory",
+      "high_confidence_block"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_account_factory",
+    "description": "Block account creation attempts identified as 'account_factory' with high confidence.",
+    "proposed_change": {
+      "condition": "if pattern == 'account_factory' and confidence == 1.0",
+      "action": "block"
+    },
+    "expected_impact": "This will prevent fraudulent accounts from being created by blocking attempts identified with high confidence as 'account_factory'.",
+    "risk": "There is minimal risk as the confidence level is high, but there is a small chance of blocking legitimate account creation if misidentified.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:37.815928+00:00"
+  },
+  {
+    "proposal_id": "fc53f28c-5d3e-4ff7-9109-1f45ac96c5db",
+    "pattern_tags": [
+      "high_confidence_block",
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "multi_domain_convergence_block",
+    "description": "Block transactions involving multi-domain convergence with high confidence of fraud.",
+    "proposed_change": {
+      "condition": "if transaction involves multi-domain convergence and is tagged as high_confidence_block then block"
+    },
+    "expected_impact": "This will prevent complex fraud operations involving multiple domains from succeeding.",
+    "risk": "There is a low risk of false positives due to the high confidence in the block assessment.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:39.311518+00:00"
+  },
+  {
+    "proposal_id": "94ca929c-a661-4d93-8774-2fc95f6aab5f",
+    "pattern_tags": [
+      "ato"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "false_positive_cluster",
+    "rule_type": "hard_rule",
+    "rule_name": "ato_false_positive_reduction",
+    "description": "Refine 'ato' pattern detection to reduce false positives.",
+    "proposed_change": {
+      "condition": "if transaction matches 'ato' pattern but has high user trust score, allow"
+    },
+    "expected_impact": "Legitimate transactions will have a lower chance of being incorrectly blocked.",
+    "risk": "There is a potential risk of allowing some fraudulent transactions if the user trust score is not accurately calculated.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:40.988529+00:00"
+  },
+  {
+    "proposal_id": "9da61de3-06cb-4cfe-92ec-31abc886839c",
+    "pattern_tags": [
+      "new_account"
+    ],
+    "pattern_count": 4,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "new_account_block_review",
+    "description": "Review and refine the conditions for blocking new accounts to reduce false positives.",
+    "proposed_change": {
+      "condition": "new_account_creation",
+      "action": "review_and_refine"
+    },
+    "expected_impact": "This change should reduce the number of false positives when blocking new accounts.",
+    "risk": "There is a risk of allowing some fraudulent accounts if the conditions are too lenient.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:49:59.420049+00:00"
+  },
+  {
+    "proposal_id": "91fdb12e-8cab-42ee-b3eb-154f9c6d0f57",
+    "pattern_tags": [
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "ring_fraud_weight_increase",
+    "description": "Increase the weight for ring fraud patterns to enhance detection.",
+    "proposed_change": {
+      "ring_fraud": {
+        "weight": 1.5
+      }
+    },
+    "expected_impact": "This change will improve the detection of ring fraud patterns by increasing their score.",
+    "risk": "There is a risk of increased false positives if legitimate transactions are misclassified as ring fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:01.262382+00:00"
+  },
+  {
+    "proposal_id": "59981a18-b14f-498c-85eb-94caced4d504",
+    "pattern_tags": [
+      "identity_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "identity_fraud_weight_increase",
+    "description": "Increase the weight for identity fraud patterns to better capture emerging fraud networks.",
+    "proposed_change": {
+      "identity_fraud_weight": "+10"
+    },
+    "expected_impact": "This change will increase the likelihood of identifying and blocking identity fraud attempts connected to larger networks.",
+    "risk": "There is a risk of increasing false positives if legitimate users are incorrectly flagged as part of a fraud network.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:02.800652+00:00"
+  },
+  {
+    "proposal_id": "62bd1dce-59cd-4b4d-af23-58aa3c58826a",
+    "pattern_tags": [
+      "new_account"
+    ],
+    "pattern_count": 4,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "new_account_verification_enhancement",
+    "description": "Enhance verification processes for new account patterns to reduce potential fraud.",
+    "proposed_change": {
+      "condition": "transaction.is_new_account and transaction.amount > 1000",
+      "verdict": "step_up",
+      "rationale": "New accounts with high transaction amounts should undergo additional verification to prevent fraud."
+    },
+    "expected_impact": "This change will increase scrutiny on new accounts making large transactions, reducing potential fraud.",
+    "risk": "There is a risk of increased friction for legitimate new users making large transactions.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:05.668200+00:00"
+  },
+  {
+    "proposal_id": "95a4f8ea-3600-43a8-b366-459cf6572055",
+    "pattern_tags": [
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "multi_domain_convergence_monitoring",
+    "description": "Monitor for signs of coordinated fraud attempts across multiple domains.",
+    "proposed_change": {
+      "trigger_condition": "multi_domain_convergence",
+      "action": "increase_monitoring_frequency",
+      "threshold": 2
+    },
+    "expected_impact": "This will enhance detection of coordinated fraud attempts across multiple domains.",
+    "risk": "There is a risk of increased false positives if legitimate multi-domain activities are misinterpreted as fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:06.390950+00:00"
+  },
+  {
+    "proposal_id": "f55f77f5-dbf8-4b52-b874-6cdee5de4044",
+    "pattern_tags": [
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "monitor_ring_fraud_activity",
+    "description": "Monitor 'ring_fraud' patterns for any increase in activity as they may indicate a novel fraud attempt.",
+    "proposed_change": {
+      "action": "add_filter",
+      "target": "ring_fraud activity increase",
+      "rationale": "To detect and respond to potential novel fraud attempts involving ring fraud."
+    },
+    "expected_impact": "This will help in early detection of new fraud patterns involving ring fraud.",
+    "risk": "There is a risk of increased false positives if legitimate activities are misclassified as ring fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:07.818841+00:00"
+  },
+  {
+    "proposal_id": "b070eff9-5af9-4afd-87a1-b8c725540d93",
+    "pattern_tags": [
+      "identity_fraud",
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "identity_ring_fraud_weight_increase",
+    "description": "Increase the weight for transactions flagged with both identity_fraud and ring_fraud tags.",
+    "proposed_change": {
+      "identity_fraud_ring_fraud_weight": "+10"
+    },
+    "expected_impact": "This will increase the likelihood of blocking transactions that are part of organized fraud rings involving identity theft.",
+    "risk": "There is a risk of increasing false positives if legitimate transactions are incorrectly flagged with both tags.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:08.637482+00:00"
+  },
+  {
+    "proposal_id": "314bb731-85ee-461e-86b8-3649feae4839",
+    "pattern_tags": [
+      "identity_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_identity_fraud",
+    "description": "Block transactions identified as 'identity_fraud' due to novel patterns.",
+    "proposed_change": {
+      "condition": "transaction_type == 'identity_fraud'",
+      "verdict": "block",
+      "rationale": "Novel identity fraud patterns have been identified and should be blocked to prevent potential fraud."
+    },
+    "expected_impact": "This rule will block transactions that match the novel identity fraud patterns, reducing potential fraud losses.",
+    "risk": "There is a risk of false positives if legitimate transactions are incorrectly identified as identity fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:09.863950+00:00"
+  },
+  {
+    "proposal_id": "62570ada-4564-44cd-a7c3-91abc2d3b689",
+    "pattern_tags": [
+      "new_account",
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "weight_adjustment",
+    "rule_name": "new_account_ring_fraud_weight",
+    "description": "Increase the weight for transactions involving new accounts and ring fraud patterns.",
+    "proposed_change": {
+      "new_account_ring_fraud_weight": 1.5
+    },
+    "expected_impact": "This change will increase the likelihood of blocking transactions associated with new accounts involved in ring fraud.",
+    "risk": "There is a risk of increasing false positives for legitimate new accounts that may resemble ring fraud patterns.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:10.849059+00:00"
+  },
+  {
+    "proposal_id": "7f10be38-ef10-4b29-86c3-6f78cf23b509",
+    "pattern_tags": [
+      "multi_domain_convergence",
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "multi_domain_convergence_ring_fraud",
+    "description": "Trigger Sentinel investigation for patterns involving multi-domain convergence and ring fraud.",
+    "proposed_change": {
+      "trigger_conditions": {
+        "pattern_tags": [
+          "multi_domain_convergence",
+          "ring_fraud"
+        ],
+        "dominant_verdict": "block"
+      }
+    },
+    "expected_impact": "Increase detection of cross-domain fraud activities by initiating investigations when these patterns are detected.",
+    "risk": "Potential increase in investigation workload due to more frequent Sentinel triggers.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:12.734118+00:00"
+  },
+  {
+    "proposal_id": "6a329797-67c2-4e7d-b98d-a06793f007a9",
+    "pattern_tags": [
+      "identity_fraud",
+      "new_account"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_identity_fraud_new_account",
+    "description": "Block new account creations associated with identity fraud patterns.",
+    "proposed_change": {
+      "condition": "if identity_fraud and new_account then block"
+    },
+    "expected_impact": "This will prevent fraudulent new account creations linked to identity theft.",
+    "risk": "There is a risk of blocking legitimate new accounts if they are incorrectly flagged as identity fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:14.679226+00:00"
+  },
+  {
+    "proposal_id": "9740168c-4f7f-4a81-90c9-024909531fe9",
+    "pattern_tags": [
+      "identity_fraud",
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "identity_fraud_multi_domain_monitor",
+    "description": "Monitor identity fraud with multi-domain convergence for signs of complex fraud operations.",
+    "proposed_change": {
+      "trigger_conditions": {
+        "pattern_tags": [
+          "identity_fraud",
+          "multi_domain_convergence"
+        ],
+        "time_window_hours": 8760
+      }
+    },
+    "expected_impact": "Increase monitoring of complex fraud operations involving identity fraud across multiple domains.",
+    "risk": "Potential increase in false positives due to broad monitoring criteria.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:16.625439+00:00"
+  },
+  {
+    "proposal_id": "53113e01-2603-4369-8a4e-02aff996dec6",
+    "pattern_tags": [
+      "multi_domain_convergence",
+      "new_account"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_multi_domain_new_account",
+    "description": "Block transactions from new accounts showing multi-domain convergence.",
+    "proposed_change": {
+      "condition": {
+        "account_age": "new",
+        "domain_convergence": "multi"
+      },
+      "action": "block"
+    },
+    "expected_impact": "This will prevent potential multi-channel fraud attempts from new accounts.",
+    "risk": "There is a risk of blocking legitimate new users who happen to use multiple domains.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:19.050648+00:00"
+  },
+  {
+    "proposal_id": "b8c2a690-1e06-4ed1-b3bc-cf95a0a5a91a",
+    "pattern_tags": [
+      "account_factory"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "account_factory_monitoring",
+    "description": "Increase monitoring for 'account_factory' patterns to detect fraudulent account creation.",
+    "proposed_change": {
+      "trigger_condition": "increase in 'account_factory' pattern occurrences",
+      "action": "initiate Sentinel investigation"
+    },
+    "expected_impact": "Enhanced detection of fraudulent account creation activities.",
+    "risk": "Potential increase in false positives if legitimate account creation spikes.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:20.753508+00:00"
+  },
+  {
+    "proposal_id": "976c8ee9-991b-4a43-8d70-2c4dbc75d8d3",
+    "pattern_tags": [
+      "high_confidence_block"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "high_confidence_block_verification",
+    "description": "Add a hard rule to block transactions identified by high confidence block patterns.",
+    "proposed_change": {
+      "condition": "if pattern_tag == 'high_confidence_block'",
+      "action": "block"
+    },
+    "expected_impact": "This will ensure that transactions identified with high confidence as fraudulent are blocked immediately.",
+    "risk": "There is a minimal risk of false positives due to the high confidence level of the pattern.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:23.177704+00:00"
+  },
+  {
+    "proposal_id": "3fdd7863-e57e-424b-a54c-02ded3ba2c64",
+    "pattern_tags": [
+      "account_factory",
+      "ring_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_account_factory_ring_fraud",
+    "description": "Block transactions from accounts identified as part of an account factory involved in ring fraud.",
+    "proposed_change": {
+      "condition": "if account_origin == 'account_factory' and fraud_type == 'ring_fraud'",
+      "action": "block"
+    },
+    "expected_impact": "This will prevent transactions from accounts likely involved in mass account creation and fraud rings.",
+    "risk": "There is a risk of blocking legitimate accounts if they are incorrectly identified as part of an account factory.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:25.557572+00:00"
+  },
+  {
+    "proposal_id": "16fc873f-bafe-4694-92d0-6242a539db04",
+    "pattern_tags": [
+      "high_confidence_block",
+      "ring_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_ring_fraud_patterns",
+    "description": "Block transactions identified as part of ring fraud with high confidence.",
+    "proposed_change": {
+      "condition": "transaction_tagged_as_ring_fraud",
+      "action": "block"
+    },
+    "expected_impact": "This will prevent transactions associated with ring fraud from being processed.",
+    "risk": "There is a low risk of false positives due to the high confidence in the pattern.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:27.014484+00:00"
+  },
+  {
+    "proposal_id": "758308f6-e92a-4910-928c-3ddc4e96d740",
+    "pattern_tags": [
+      "account_factory",
+      "identity_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_account_factory_identity_fraud",
+    "description": "Block transactions from accounts identified as part of an account factory involved in identity fraud.",
+    "proposed_change": {
+      "condition": {
+        "tags": [
+          "account_factory",
+          "identity_fraud"
+        ],
+        "action": "block"
+      }
+    },
+    "expected_impact": "This will prevent fraudulent transactions from accounts created en masse for identity theft.",
+    "risk": "There is a risk of blocking legitimate accounts if they are incorrectly tagged as part of an account factory.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:28.776164+00:00"
+  },
+  {
+    "proposal_id": "878f9319-f1b6-4cc5-941a-744412c5a6fa",
+    "pattern_tags": [
+      "high_confidence_block",
+      "identity_fraud"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_high_confidence_identity_fraud",
+    "description": "Block transactions with high confidence of identity fraud.",
+    "proposed_change": {
+      "condition": "if transaction has high_confidence_block and identity_fraud then block"
+    },
+    "expected_impact": "This will prevent transactions with a high likelihood of identity fraud from being processed.",
+    "risk": "There is a minimal risk of false positives due to the high confidence level of the pattern.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:30.175467+00:00"
+  },
+  {
+    "proposal_id": "246f9f55-ab83-4b39-a242-a23c1afab510",
+    "pattern_tags": [
+      "account_factory",
+      "new_account"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "monitor_account_factory_new_account",
+    "description": "Increase monitoring for 'account_factory' and 'new_account' tags to detect potential fraudulent account creation.",
+    "proposed_change": {
+      "trigger_conditions": {
+        "tags": [
+          "account_factory",
+          "new_account"
+        ],
+        "increase_threshold": 10
+      }
+    },
+    "expected_impact": "Enhanced detection of fraudulent account creation activities.",
+    "risk": "Potential increase in false positives if legitimate new accounts are flagged.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:31.597075+00:00"
+  },
+  {
+    "proposal_id": "bfcb4b96-fa7e-4744-a51e-1a9da0430e70",
+    "pattern_tags": [
+      "high_confidence_block",
+      "new_account"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_new_account_high_confidence",
+    "description": "Block transactions from new accounts with high confidence fraud indicators.",
+    "proposed_change": {
+      "condition": {
+        "account_age_days": "<= 7",
+        "fraud_indicator": "high_confidence_block"
+      },
+      "action": "block"
+    },
+    "expected_impact": "This rule will block fraudulent transactions from new accounts with high confidence indicators.",
+    "risk": "There is a risk of blocking legitimate new accounts if the fraud indicators are not accurate.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:33.649188+00:00"
+  },
+  {
+    "proposal_id": "229fce3f-309c-4bd3-82ec-7e6a7d8f2637",
+    "pattern_tags": [
+      "account_factory",
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_account_factory_multi_domain",
+    "description": "Block transactions involving account factories with multi-domain convergence.",
+    "proposed_change": {
+      "condition": {
+        "account_activity": "account_factory",
+        "domain_activity": "multi_domain_convergence"
+      },
+      "action": "block"
+    },
+    "expected_impact": "This rule will block transactions that are likely part of cross-domain fraud activities.",
+    "risk": "There is a risk of blocking legitimate transactions if they match the pattern, but the confidence in the pattern is high.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:35.424638+00:00"
+  },
+  {
+    "proposal_id": "4f05a1d6-b984-43e4-9a8a-d62d8c3cd0af",
+    "pattern_tags": [
+      "account_factory",
+      "high_confidence_block"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_account_factory",
+    "description": "Block account creation attempts identified as 'account_factory' with high confidence.",
+    "proposed_change": {
+      "condition": "if pattern == 'account_factory' and confidence == 1.0",
+      "action": "block"
+    },
+    "expected_impact": "This will prevent fraudulent accounts from being created by blocking attempts identified as 'account_factory' with high confidence.",
+    "risk": "There is minimal risk of false positives due to the high confidence level required for blocking.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:36.956017+00:00"
+  },
+  {
+    "proposal_id": "da1041d7-473c-487c-a76b-ff0a0b8fbe72",
+    "pattern_tags": [
+      "high_confidence_block",
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "multi_domain_convergence_block",
+    "description": "Block transactions involving multi-domain convergence with high confidence of fraud.",
+    "proposed_change": {
+      "condition": "if transaction involves multi-domain convergence and is tagged as high_confidence_block then block"
+    },
+    "expected_impact": "This will prevent complex fraud operations that exploit multiple domains from succeeding.",
+    "risk": "There is a low risk of false positives due to the high confidence in the block assessment.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:39.202608+00:00"
+  },
+  {
+    "proposal_id": "bc96f7ec-4fdb-4686-85b3-dacddab70df5",
+    "pattern_tags": [
+      "ato"
+    ],
+    "pattern_count": 2,
+    "pattern_finding_type": "false_positive_cluster",
+    "rule_type": "hard_rule",
+    "rule_name": "ato_false_positive_reduction",
+    "description": "Refine 'ato' pattern detection to reduce false positives.",
+    "proposed_change": {
+      "condition": "if transaction matches 'ato' pattern but has verified user history, allow"
+    },
+    "expected_impact": "Legitimate transactions will be less likely to be blocked, reducing customer friction.",
+    "risk": "There is a potential risk of allowing some fraudulent transactions if the verification process is not robust.",
+    "status": "pending",
+    "created_at": "2026-03-20T22:50:41.204957+00:00"
+  }
+]
