@@ -1,58 +1,62 @@
-Build Milestone 5A — Sentinel v2: bounded ReAct investigator.
+Build Milestone 5B — Pattern Detection Agent.
 
-Refactor src/sentinel/investigation_agent.py to use 
-LangGraph's create_react_agent with bounded tool-calling.
+New files:
+  src/sentinel/pattern_detection.py
+  src/schemas/pattern_finding.py
 
-## Three tools only
+PatternFinding schema (src/schemas/pattern_finding.py):
+  pattern_tags: list[str]
+  count: int
+  time_window_hours: int
+  assessment_distribution: dict[str, int]
+  dominant_verdict: str
+  suggestion: str
+  confidence: float
+  finding_type: Literal["emerging_fraud", "false_positive_cluster", "novel_pattern"]
+  detected_at: str  (ISO timestamp)
 
-1. get_enrichment(entity_id: str) -> dict
-   Extract from existing enrich_entity() in mock_enrichment.py
-   Returns: account_age_days, prior_chargebacks, 
-            prior_step_up_results, device_reuse_count,
-            linked_entities_count
+Pattern Detection function (src/sentinel/pattern_detection.py):
+  run_pattern_detection(
+      time_window_hours: int = 48,
+      min_count: int = 2,
+      store: Optional[MemoryStore] = None
+  ) -> list[PatternFinding]
 
-2. find_similar_cases(pattern_tags: list[str], limit: int = 5) -> list[dict]
-   Extract from existing memory_store.query_similar()
-   Returns: list of similar past investigation records
+Steps:
+1. Load all records from last time_window_hours (pure Python)
+2. Count tag co-occurrences across records (pure Python)
+   - For each pair of tags that appear together, count occurrences
+   - Also count single tags
+   - Only keep combinations appearing >= min_count times
+3. For each qualifying combination collect:
+   - assessment_distribution
+   - dominant_verdict
+   - list of case_ids
+4. One LLM call (GPT-4o, temperature=0) to synthesize:
+   - For each pattern: generate suggestion and finding_type
+   - Input: all qualifying patterns with their stats
+   - Output: list of PatternFindings with suggestion + finding_type filled in
+5. Return sorted by count descending
 
-3. get_specialist_evidence(domain: str) -> dict
-   New tool — returns the specialist score and primary signals
-   for a given domain from the current case context
-   Domains: ato, payment, identity, promo, ring, payload
+LLM system prompt for Pattern Detection:
+You are a fraud pattern analyst.
+You receive tag co-occurrence statistics from recent investigations.
+For each pattern produce:
+  - suggestion: specific actionable recommendation (one sentence)
+  - finding_type: "emerging_fraud" | "false_positive_cluster" | "novel_pattern"
+Use finding_type = "false_positive_cluster" when 
+  assessment_distribution shows > 40% possible_false_positive
+Use finding_type = "emerging_fraud" when count is high 
+  and dominant_verdict is block with likely_correct assessment
+Use finding_type = "novel_pattern" for everything else
+Output JSON array only.
 
-## Tool-calling loop constraints
-- Max 3 tool calls per investigation
-- temperature=0
-- Use create_react_agent from langgraph.prebuilt
-- Stop when LLM decides it has enough evidence
+Create notebooks/milestone5b_pattern_detection_demo.ipynb:
+- Run 3 different cases through full pipeline 
+  (ring attack, clean legitimate, ambiguous ATO)
+- All 3 go through Sentinel investigation
+- Then run pattern detection across all stored records
+- Print all PatternFindings
+- Show which finding_type each pattern gets
 
-## Tool trace logging
-Log to investigation record:
-    tool_trace: list[dict] with fields:
-        tool_name: str
-        arguments: dict
-        result_summary: str  (one line summary of what was returned)
-        call_order: int
-
-## Final output schema — unchanged
-InvestigationRecord stays exactly the same.
-Add tool_trace: list[dict] as a new optional field.
-
-## System prompt for Sentinel v2
-You are Sentinel, a bounded fraud investigator.
-You have 3 tool calls maximum. Use them wisely.
-Start with the tool most relevant to the dominant domain.
-Stop early if evidence is clear.
-Always end with a structured JSON output:
-  investigation_narrative, pattern_tags, assessment
-
-## Do not change
-- memory_store.py
-- investigation_record.py (except add tool_trace field)
-- mock_enrichment.py
-- Any Execution System files
-
-## Update notebooks/milestone4_sentinel_demo.ipynb
-Rename to milestone5a_sentinel_v2_demo.ipynb
-Show tool trace for Case 1 — ring attack
-Show which tools were called and in what order
+Do not modify any existing files.

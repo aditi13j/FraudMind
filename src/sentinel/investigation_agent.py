@@ -119,71 +119,46 @@ def _build_tools(
 
 
 # ---------------------------------------------------------------------------
-# Message parsing helpers
+# Message parsing
 # ---------------------------------------------------------------------------
 
-def _extract_tool_trace(messages: list) -> tuple[list[dict], dict, list[dict]]:
-    """
-    Walk message history and extract:
-      - tool_trace: ordered log of tool calls
-      - enriched_signals: result of get_enrichment (if called)
-      - memory_matches: result of find_similar_cases (if called)
-    """
-    tool_trace: list[dict] = []
-    enriched_signals: dict = {}
-    memory_matches: list[dict] = []
-    call_order = 0
-
-    # Map tool_call_id -> (tool_name, arguments)
+def _extract_tool_trace(messages: list) -> list[dict]:
+    """Walk message history and build an ordered log of tool calls with results."""
     pending: dict[str, tuple[str, dict]] = {}
+    trace: list[dict] = []
 
     for msg in messages:
         if isinstance(msg, AIMessage) and msg.tool_calls:
             for tc in msg.tool_calls:
                 pending[tc["id"]] = (tc["name"], tc["args"])
-
         elif isinstance(msg, ToolMessage):
             tool_name, arguments = pending.pop(msg.tool_call_id, ("unknown", {}))
-            call_order += 1
-
             try:
                 result = json.loads(msg.content) if isinstance(msg.content, str) else msg.content
             except (json.JSONDecodeError, TypeError):
                 result = msg.content
-
-            if tool_name == "get_enrichment" and isinstance(result, dict):
-                enriched_signals = result
-            elif tool_name == "find_similar_cases" and isinstance(result, list):
-                memory_matches = result
-
-            if isinstance(result, dict):
-                summary = ", ".join(f"{k}={v}" for k, v in list(result.items())[:3])
-            elif isinstance(result, list):
-                summary = f"{len(result)} record(s) returned"
-            else:
-                summary = str(result)[:120]
-
-            tool_trace.append({
+            summary = (
+                ", ".join(f"{k}={v}" for k, v in list(result.items())[:3]) if isinstance(result, dict)
+                else f"{len(result)} record(s) returned" if isinstance(result, list)
+                else str(result)[:120]
+            )
+            trace.append({
                 "tool_name": tool_name,
                 "arguments": arguments,
                 "result_summary": summary,
-                "call_order": call_order,
+                "call_order": len(trace) + 1,
+                "_result": result,
             })
 
-    return tool_trace, enriched_signals, memory_matches
+    return trace
 
 
 def _parse_final_output(messages: list) -> dict:
     """Extract and parse the final JSON from the last AI message."""
     for msg in reversed(messages):
         if isinstance(msg, AIMessage) and msg.content:
-            content = msg.content.strip()
-            if content.startswith("```"):
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
             try:
-                return json.loads(content)
+                return json.loads(msg.content.strip())
             except json.JSONDecodeError:
                 continue
     raise ValueError("Sentinel did not produce a parseable JSON output")
@@ -268,8 +243,18 @@ def run_investigation(
     )
 
     messages = result["messages"]
-    tool_trace, enriched_signals, memory_matches = _extract_tool_trace(messages)
+    raw_trace = _extract_tool_trace(messages)
     data = _parse_final_output(messages)
+
+    enriched_signals = next(
+        (e["_result"] for e in raw_trace if e["tool_name"] == "get_enrichment" and isinstance(e["_result"], dict)),
+        {},
+    )
+    memory_matches = next(
+        (e["_result"] for e in raw_trace if e["tool_name"] == "find_similar_cases" and isinstance(e["_result"], list)),
+        [],
+    )
+    tool_trace = [{k: v for k, v in e.items() if k != "_result"} for e in raw_trace]
 
     record = InvestigationRecord(
         case_id=str(uuid.uuid4()),
