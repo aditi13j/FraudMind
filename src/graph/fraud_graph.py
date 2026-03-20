@@ -1,21 +1,11 @@
 """
 FraudMind LangGraph Graph -- Version 2, Milestone 3
 
-Six specialist agents run in parallel with conditional routing.
-Ring Detection always runs regardless of routing tier.
+All six specialist agents always run in parallel (full council).
 
 Graph flow:
     START --> set_routing_tier --> [parallel fan-out via Send] --> council_join
           --> risk_aggregation --> arbiter --> END
-
-Routing tiers (set routing_tier in input state before invoking):
-    fast         -- Ring Detection only (single-domain, high prior confidence)
-    standard     -- ATO + Payment + Ring Detection
-    full_council -- All 6 specialists (default when routing_tier is not set)
-
-Ring Detection always runs regardless of tier if ring_signals are present.
-If a known_ring_signature_match is detected in ring_signals, the tier is forced
-to full_council regardless of the caller's routing_tier value.
 """
 
 import operator
@@ -71,8 +61,8 @@ class FraudState(TypedDict, total=False):
     payment_method_id: Optional[str]
     event_type: str                   # "authentication" | "transaction" | "onboarding" | "profile_update"
 
-    # Routing metadata
-    routing_tier: Optional[str]       # "fast" | "standard" | "full_council"
+    # Routing metadata (always full_council; kept for observability)
+    routing_tier: Optional[str]
 
     # Input signals per specialist
     ato_signals: Optional[MockATOSignals]
@@ -109,63 +99,30 @@ class FraudState(TypedDict, total=False):
 # Routing
 # ---------------------------------------------------------------------------
 
-_FULL_COUNCIL_AGENTS = {"ato", "payment", "identity", "promo", "ring", "payload"}
-_STANDARD_AGENTS = {"ato", "payment", "ring"}
-_FAST_AGENTS = {"ring"}
+_ALL_AGENTS = {"ato", "payment", "identity", "promo", "ring", "payload"}
+
+_SIGNAL_GUARD: dict[str, str] = {
+    "ato":      "ato_signals",
+    "payment":  "payment_signals",
+    "identity": "identity_signals",
+    "promo":    "promo_signals",
+    "ring":     "ring_signals",
+    "payload":  "payload_signals",
+}
 
 
 def set_routing_tier(state: FraudState) -> dict:
-    """
-    Determine and write the routing tier into state.
-
-    If routing_tier is already set to a valid value, respect it unless a known
-    ring signature match forces an upgrade to full_council.
-
-    Returns a partial state update dict with routing_tier populated.
-    """
-    ring_signals: Optional[RingSignals] = state.get("ring_signals")
-    force_full = ring_signals is not None and ring_signals.known_ring_signature_match
-
-    current_tier = state.get("routing_tier")
-    if force_full or current_tier not in ("fast", "standard", "full_council"):
-        return {"routing_tier": "full_council"}
-    return {"routing_tier": current_tier}
+    """Always routes full council. Kept for graph structure consistency."""
+    return {"routing_tier": "full_council"}
 
 
 def route_to_specialists(state: FraudState) -> list[Send]:
-    """
-    Conditional edge function: fan out to the correct specialist nodes in parallel.
-
-    Called after set_routing_tier has written routing_tier into state. Returns a
-    list of Send objects that LangGraph dispatches concurrently.
-
-    Ring Detection always runs if ring_signals are present, regardless of tier.
-    """
-    tier = state.get("routing_tier", "full_council")
-
-    if tier == "fast":
-        active_agent_names = set(_FAST_AGENTS)
-    elif tier == "standard":
-        active_agent_names = set(_STANDARD_AGENTS)
-    else:
-        active_agent_names = set(_FULL_COUNCIL_AGENTS)
-
-    # Map agent name to the signals key that must be present to run it
-    signal_guard: dict[str, str] = {
-        "ato":     "ato_signals",
-        "payment": "payment_signals",
-        "identity":"identity_signals",
-        "promo":   "promo_signals",
-        "ring":    "ring_signals",
-        "payload": "payload_signals",
-    }
-
-    sends: list[Send] = []
-    for agent_name in active_agent_names:
-        if state.get(signal_guard[agent_name]) is not None:
-            sends.append(Send(agent_name, state))
-
-    return sends
+    """Fan out to all specialist nodes in parallel. Skips any whose signals are absent."""
+    return [
+        Send(agent, state)
+        for agent, sig_key in _SIGNAL_GUARD.items()
+        if state.get(sig_key) is not None
+    ]
 
 
 # ---------------------------------------------------------------------------
