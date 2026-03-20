@@ -56,20 +56,20 @@ class MemoryStore:
         self,
         pattern_tags: list[str],
         limit: int = 5,
-    ) -> list[str]:
+    ) -> list[dict]:
         """
-        Return case_ids of the most similar past records.
+        Return the most similar past records as full dicts.
 
         Similarity is measured by the number of pattern_tags shared with
         the query. Records are ranked by match count (descending) then by
-        timestamp (most recent first). Returns up to `limit` case_ids.
+        created_at (most recent first). Returns up to `limit` records.
 
         Args:
             pattern_tags: Tags from the current case to match against.
-            limit:        Maximum number of case_ids to return.
+            limit:        Maximum number of records to return.
 
         Returns:
-            List of case_ids, most similar first.
+            List of record dicts, most similar first.
         """
         if not pattern_tags:
             return []
@@ -77,15 +77,15 @@ class MemoryStore:
         query_set = set(pattern_tags)
         records = self._load_all()
 
-        scored: list[tuple[int, str, str]] = []  # (match_count, timestamp, case_id)
+        scored: list[tuple[int, str, dict]] = []  # (match_count, created_at, record)
         for r in records:
             stored_tags = set(r.get("pattern_tags", []))
             match_count = len(query_set & stored_tags)
             if match_count > 0:
-                scored.append((match_count, r.get("timestamp", ""), r["case_id"]))
+                scored.append((match_count, r.get("created_at", ""), r))
 
         scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
-        return [case_id for _, _, case_id in scored[:limit]]
+        return [r for _, _, r in scored[:limit]]
 
     def load_record(self, case_id: str) -> Optional[InvestigationRecord]:
         """Return a single record by case_id, or None if not found."""

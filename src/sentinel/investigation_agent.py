@@ -31,7 +31,7 @@ from src.schemas.investigation_record import InvestigationRecord
 from src.schemas.risk_vector import RiskVector
 from src.schemas.specialist_score import SpecialistScore
 from src.sentinel.memory_store import MemoryStore
-from src.sentinel.mock_enrichment import run_all_enrichment
+from src.sentinel.mock_enrichment import enrich_entity
 
 load_dotenv()
 
@@ -60,8 +60,7 @@ Respond with a JSON object matching this schema exactly:
 {
   "investigation_narrative": "<3-6 sentences synthesizing all evidence into a coherent account of what likely happened>",
   "pattern_tags": ["<tag1>", "<tag2>", ...],
-  "verdict_assessment": "correct" | "possible_false_positive" | "uncertain",
-  "confidence_in_assessment": <float 0.0 to 1.0>
+  "assessment": "correct" | "possible_false_positive" | "uncertain"
 }
 
 ## Pattern tags
@@ -74,24 +73,16 @@ Choose from this vocabulary (use only tags that apply; pick 2 to 6):
   Verdict tags   : high_confidence_block, borderline_case, insufficient_evidence,
                    single_domain_signal, multi_domain_convergence
 
-## Verdict assessment
+## Assessment values
 
-correct                 The evidence strongly supports the Arbiter's verdict. The
-                        enrichment and risk signals are coherent and point the same direction.
+correct                 The evidence supports the verdict. Enrichment and risk signals
+                        point in the same direction.
 
-possible_false_positive The enrichment suggests a legitimate user. For example: clean IP
-                        reputation, trusted device with long history, no prior fraud, yet
-                        the Arbiter blocked or stepped up. Use this when the enrichment
-                        materially contradicts the risk signals.
+possible_false_positive Enrichment contradicts the verdict. Clean IP, trusted device with
+                        long history, no prior fraud, yet the Arbiter blocked or stepped up.
 
-uncertain               The evidence is mixed or ambiguous. Use when you cannot confidently
+uncertain               Mixed or ambiguous evidence. Use when you cannot confidently
                         support or contradict the verdict.
-
-## Confidence in assessment
-
-Reserve > 0.80 for cases where the evidence is unambiguous.
-Use 0.50 to 0.70 for cases where enrichment provides some clarity but gaps remain.
-Use < 0.50 for cases where enrichment is neutral and the assessment is speculative.
 
 Respond with JSON only. No preamble, no markdown, no explanation outside the JSON.\
 """
@@ -103,7 +94,7 @@ def _build_user_message(
     risk_vector: RiskVector,
     specialist_scores: dict[str, Optional[SpecialistScore]],
     enriched_signals: dict,
-    memory_matches: list[str],
+    memory_matches: list[dict],
 ) -> str:
     lines: list[str] = [
         f"Entity: {entity_id}",
@@ -134,7 +125,12 @@ def _build_user_message(
     lines.append(json.dumps(enriched_signals, indent=2))
 
     if memory_matches:
-        lines += ["", f"Similar past cases in memory: {', '.join(memory_matches)}"]
+        lines += ["", f"Similar past cases ({len(memory_matches)}):"]
+        for m in memory_matches:
+            lines.append(
+                f"  {m.get('case_id', '?')}  verdict={m.get('arbiter_verdict')}  "
+                f"tags={m.get('pattern_tags', [])}  assessment={m.get('assessment')}"
+            )
     else:
         lines += ["", "No similar past cases found in memory."]
 
@@ -151,8 +147,6 @@ def run_investigation(
     arbiter_output: ArbiterOutput,
     risk_vector: RiskVector,
     specialist_scores: dict[str, Optional[SpecialistScore]],
-    ip_hash: Optional[str] = None,
-    device_id: Optional[str] = None,
     store: Optional[MemoryStore] = None,
 ) -> InvestigationRecord:
     """
@@ -163,8 +157,6 @@ def run_investigation(
         arbiter_output:    The verdict and metadata from the Arbiter.
         risk_vector:       Aggregated specialist scores from risk aggregation.
         specialist_scores: Per-domain SpecialistScore objects (may be None).
-        ip_hash:           Hashed IP address for IP enrichment (optional).
-        device_id:         Device fingerprint for device enrichment (optional).
         store:             MemoryStore instance (uses module default if None).
 
     Returns:
@@ -173,11 +165,7 @@ def run_investigation(
     active_store = store or _memory_store
 
     # Step 1: Mock enrichment
-    enriched_signals = run_all_enrichment(
-        entity_id=entity_id,
-        ip_hash=ip_hash,
-        device_id=device_id,
-    )
+    enriched_signals = enrich_entity(entity_id)
 
     # Step 2: Derive initial pattern_tags for memory query from RiskVector context.
     # The LLM will refine these; we use a lightweight heuristic to seed memory lookup.
@@ -224,20 +212,16 @@ def run_investigation(
     # Step 5: Build and persist the record
     record = InvestigationRecord(
         case_id=str(uuid.uuid4()),
-        entity_id=entity_id,
-        timestamp=datetime.now(timezone.utc).isoformat(),
         arbiter_verdict=arbiter_output.verdict,
         arbiter_confidence=arbiter_output.confidence,
-        arbiter_reasoning=arbiter_output.reasoning,
-        risk_vector_aggregate=risk_vector.aggregate,
-        risk_vector_dominant_domain=risk_vector.dominant_domain,
-        memory_matches=memory_matches,
+        trigger_reason=arbiter_output.trigger_reason,
+        risk_vector=risk_vector,
         enriched_signals=enriched_signals,
+        memory_matches=memory_matches,
         investigation_narrative=data["investigation_narrative"],
         pattern_tags=data["pattern_tags"],
-        verdict_assessment=data["verdict_assessment"],
-        confidence_in_assessment=data["confidence_in_assessment"],
-        trigger_reason=arbiter_output.trigger_reason or "unspecified",
+        assessment=data["assessment"],
+        created_at=datetime.now(timezone.utc).isoformat(),
     )
 
     active_store.save(record)
