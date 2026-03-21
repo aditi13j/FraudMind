@@ -19,6 +19,7 @@ import streamlit as st
 from src.schemas.investigation_record import InvestigationRecord
 from src.sentinel.memory_store import MemoryStore
 from src.sentinel.pattern_detection import run_pattern_detection
+from src.sentinel.rule_applier import apply_proposal
 from src.sentinel.rule_proposer import ProposalStore
 
 # ---------------------------------------------------------------------------
@@ -309,7 +310,9 @@ def page_proposals() -> None:
         col_approve, col_reject, _ = st.columns([1, 1, 5])
         if col_approve.button("✅ Approve", key=f"approve_{proposal.proposal_id}",
                               use_container_width=True, type="primary"):
+            result = apply_proposal(proposal)
             proposal_store.update_status(proposal.proposal_id, "approved")
+            st.success(result)
             st.rerun()
         if col_reject.button("❌ Reject", key=f"reject_{proposal.proposal_id}",
                              use_container_width=True):

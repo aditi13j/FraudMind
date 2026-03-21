@@ -31,14 +31,17 @@ _SYSTEM_PROMPT = """\
 You are a fraud pattern analyst.
 You receive tag co-occurrence statistics from recent investigations.
 For each pattern produce:
+  - tag_key: the exact pattern_tags value from the input (copy it verbatim as a JSON array)
   - suggestion: specific actionable recommendation (one sentence)
   - finding_type: "emerging_fraud" | "false_positive_cluster" | "novel_pattern"
+
 Use finding_type = "false_positive_cluster" when \
-assessment_distribution shows > 40% possible_false_positive
+assessment_distribution shows > 40% possible_false_positive.
 Use finding_type = "emerging_fraud" when count is high \
-and dominant_verdict is block with likely_correct assessment
-Use finding_type = "novel_pattern" for everything else
-Output JSON array only.\
+and dominant_verdict is block with likely_correct assessment.
+Use finding_type = "novel_pattern" for everything else.
+
+Output a JSON array only. Each element must have tag_key, suggestion, finding_type.\
 """
 
 
@@ -184,10 +187,26 @@ def run_pattern_detection(
     # One LLM call for suggestion + finding_type
     llm_results = _llm_synthesize(pattern_stats)
 
-    # Merge stats with LLM annotations
-    # llm_results is indexed the same order as pattern_stats
+    # Build a lookup keyed by sorted tag list so order in LLM response doesn't matter.
+    # tag_key is a JSON array string like ["geo_mismatch", "new_account"]; normalise to
+    # a frozenset-style canonical key for robust matching.
+    def _canonical(tags: list) -> str:
+        return json.dumps(sorted(tags))
+
+    llm_by_key: dict[str, dict] = {}
+    for item in llm_results:
+        raw_key = item.get("tag_key", [])
+        if isinstance(raw_key, str):
+            try:
+                raw_key = json.loads(raw_key)
+            except (json.JSONDecodeError, TypeError):
+                raw_key = []
+        llm_by_key[_canonical(raw_key)] = item
+
     findings: list[PatternFinding] = []
-    for stats, llm in zip(pattern_stats, llm_results):
+    for stats in pattern_stats:
+        key = _canonical(stats["pattern_tags"])
+        llm = llm_by_key.get(key, {})
         findings.append(PatternFinding(
             pattern_tags=stats["pattern_tags"],
             count=stats["count"],

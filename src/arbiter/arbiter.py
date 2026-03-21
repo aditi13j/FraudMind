@@ -293,7 +293,7 @@ def run_arbiter(
         )
 
     # --- Deterministic: escalate on specialist disagreement ---
-    if risk_vector.score_stddev > RED_TEAM_VARIANCE_THRESHOLD:
+    if risk_vector.score_stddev is not None and risk_vector.score_stddev > RED_TEAM_VARIANCE_THRESHOLD:
         evidence = _collect_evidence(specialist_scores)
         trigger_async, trigger_reason = _decide_async_trigger("escalate", risk_vector)
         return ArbiterOutput(

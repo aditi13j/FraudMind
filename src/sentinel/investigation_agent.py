@@ -48,7 +48,8 @@ Stop early if evidence is clear.
 Available tools:
   get_enrichment         — entity history: account age, chargebacks, step-up results,
                            device reuse count, linked entities count
-  find_similar_cases     — search memory for past cases with similar pattern tags
+  find_similar_cases     — semantic search of past cases; pass a free-text description
+                           of this case (behavior, signals, domains, tags so far)
   get_specialist_evidence — score and primary signals for a specific domain
                            (ato, payment, identity, promo, ring, payload)
 
@@ -92,12 +93,14 @@ def _build_tools(
         return enrich_entity(entity_id)
 
     @tool
-    def find_similar_cases(pattern_tags: list[str], limit: int = 5) -> list[dict]:
+    def find_similar_cases(query_text: str, limit: int = 5) -> list[dict]:
         """
-        Search memory for past investigation records sharing pattern tags with this case.
-        Returns up to `limit` similar records, most similar first.
+        Search memory for past investigations semantically similar to this case.
+        Pass a free-text description: entity behavior, fraud signals, domain scores,
+        and any pattern tags you have identified so far.
+        Returns up to `limit` records, most similar first.
         """
-        return store.query_similar(pattern_tags, limit)
+        return store.query_similar(query_text, limit)
 
     @tool
     def get_specialist_evidence(domain: str) -> dict:
@@ -206,6 +209,7 @@ def run_investigation(
     risk_vector: RiskVector,
     specialist_scores: dict[str, Optional[SpecialistScore]],
     store: Optional[MemoryStore] = None,
+    amount_usd: Optional[float] = None,
 ) -> InvestigationRecord:
     """
     Run a bounded Sentinel investigation and persist the record.
@@ -261,6 +265,7 @@ def run_investigation(
         entity_id=entity_id,
         arbiter_verdict=arbiter_output.verdict,
         arbiter_confidence=arbiter_output.confidence,
+        amount_usd=amount_usd,
         trigger_reason=arbiter_output.trigger_reason,
         risk_vector=risk_vector,
         enriched_signals=enriched_signals,

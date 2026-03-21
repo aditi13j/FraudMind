@@ -1,0 +1,103 @@
+[
+  {
+    "proposal_id": "ac4d7ddd-9ac1-4cb6-bf7e-7672ca87a897",
+    "pattern_tags": [
+      "new_account"
+    ],
+    "pattern_count": 4,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_new_account_pattern",
+    "description": "Block transactions from new accounts exhibiting suspicious patterns.",
+    "proposed_change": {
+      "condition": "transaction.account_age < 30 and transaction.suspicious_pattern_detected",
+      "verdict": "block",
+      "rationale": "New accounts with suspicious patterns have a high likelihood of being fraudulent."
+    },
+    "expected_impact": "This rule will block potentially fraudulent transactions from new accounts, reducing fraud risk.",
+    "risk": "There is a risk of blocking legitimate transactions from new accounts, but the likelihood is low given the pattern's confidence level.",
+    "status": "pending",
+    "created_at": "2026-03-20T23:49:55.321053+00:00"
+  },
+  {
+    "proposal_id": "4e518d83-163b-4e4c-a209-21e7d44afb92",
+    "pattern_tags": [
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "sentinel_filter",
+    "rule_name": "monitor_ring_fraud",
+    "description": "Monitor 'ring_fraud' patterns for any increase in activity.",
+    "proposed_change": {
+      "action": "add_filter",
+      "target": "ring_fraud pattern detection",
+      "rationale": "To ensure early detection of potential emerging threats related to ring fraud."
+    },
+    "expected_impact": "This will help in identifying and mitigating ring fraud activities before they escalate.",
+    "risk": "There is a risk of increased false positives if the pattern is not well-defined.",
+    "status": "pending",
+    "created_at": "2026-03-20T23:49:57.166308+00:00"
+  },
+  {
+    "proposal_id": "72d9ce14-29d4-429d-8c38-d9d8f0b43ae3",
+    "pattern_tags": [
+      "identity_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_identity_fraud",
+    "description": "Block all attempts identified as 'identity_fraud'.",
+    "proposed_change": {
+      "condition": "transaction.type == 'identity_fraud'",
+      "verdict": "block",
+      "rationale": "Identity fraud attempts should be blocked to prevent unauthorized access and potential financial loss."
+    },
+    "expected_impact": "This will prevent any transactions identified as identity fraud from being processed.",
+    "risk": "There is minimal risk as the pattern is confidently identified as fraud.",
+    "status": "pending",
+    "created_at": "2026-03-20T23:49:58.780256+00:00"
+  },
+  {
+    "proposal_id": "c38a5cc4-aa53-415e-bea7-39b86b563e1a",
+    "pattern_tags": [
+      "multi_domain_convergence"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "multi_domain_convergence_block",
+    "description": "Block transactions exhibiting multi-domain convergence patterns.",
+    "proposed_change": {
+      "condition": "transaction.domain in suspicious_domains and transaction.ip in known_fraud_ips",
+      "verdict": "block",
+      "rationale": "Multi-domain convergence patterns indicate potential coordinated fraud activities."
+    },
+    "expected_impact": "This rule will block transactions that are part of coordinated fraud attempts across multiple domains.",
+    "risk": "There is a risk of blocking legitimate transactions if they match the convergence pattern by coincidence.",
+    "status": "pending",
+    "created_at": "2026-03-20T23:50:00.757360+00:00"
+  },
+  {
+    "proposal_id": "f51f005b-a912-4109-a326-85f05e11b5f0",
+    "pattern_tags": [
+      "identity_fraud",
+      "ring_fraud"
+    ],
+    "pattern_count": 3,
+    "pattern_finding_type": "novel_pattern",
+    "rule_type": "hard_rule",
+    "rule_name": "block_identity_ring_fraud_combo",
+    "description": "Block transactions that exhibit both identity fraud and ring fraud characteristics.",
+    "proposed_change": {
+      "condition": "transaction.has_fraud_tag('identity_fraud') and transaction.has_fraud_tag('ring_fraud')",
+      "verdict": "block",
+      "rationale": "Blocking transactions with both identity and ring fraud tags will prevent complex fraud schemes."
+    },
+    "expected_impact": "This rule will block transactions that are part of sophisticated fraud schemes involving identity and ring fraud.",
+    "risk": "There is a low risk of false positives as the pattern is highly specific and confirmed.",
+    "status": "pending",
+    "created_at": "2026-03-20T23:50:02.705522+00:00"
+  }
+]
