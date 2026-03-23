@@ -40,6 +40,15 @@ class InvestigationRecord(BaseModel):
         default=None,
         description="One-sentence fraud hypothesis generated before investigation begins.",
     )
+    hypothesis_outcome: Optional[Literal["confirmed", "refuted", "ambiguous"]] = Field(
+        default=None,
+        description=(
+            "Whether the investigation evidence confirmed or refuted the pre-generated hypothesis. "
+            "confirmed: evidence supports the hypothesis. "
+            "refuted: evidence contradicts it. "
+            "ambiguous: mixed or inconclusive evidence."
+        ),
+    )
     investigation_plan: Optional[list[str]] = Field(
         default=None,
         description="Three-step plan generated before the ReAct tool loop.",

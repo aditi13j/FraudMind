@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from src.schemas.pattern_finding import PatternFinding
+from src.schemas.red_team_report import RedTeamReport
 from src.schemas.rule_proposal import RuleProposal
 
 load_dotenv()
@@ -171,6 +172,105 @@ def propose_rule(finding: PatternFinding) -> RuleProposal:
         pattern_tags=finding.pattern_tags,
         pattern_count=finding.count,
         pattern_finding_type=finding.finding_type,
+        rule_type=data["rule_type"],
+        rule_name=data["rule_name"],
+        description=data["description"],
+        proposed_change=data["proposed_change"],
+        expected_impact=data["expected_impact"],
+        risk=data["risk"],
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public interface: revise_rule
+# ---------------------------------------------------------------------------
+
+_REVISE_PROMPT = """\
+You are a fraud rule engineer. A previous rule proposal was stress-tested by a
+red team agent and found to be bypassable. You will receive:
+  1. The original rule proposal
+  2. The bypass scenarios that evaded it
+
+Generate a revised, stronger version of the rule that closes the identified gaps.
+Keep the same rule_type unless the bypass scenarios suggest a fundamentally
+different approach is needed.
+
+Apply the same output format as before:
+{
+  "rule_type": "weight_adjustment" | "hard_rule" | "sentinel_filter",
+  "rule_name": "short_snake_case_name (append _v2 or increment suffix)",
+  "description": "plain English one sentence",
+  "proposed_change": {...exact format per rule type...},
+  "expected_impact": "one sentence",
+  "risk": "one sentence"
+}
+
+Output JSON only.\
+"""
+
+
+def revise_rule(original: RuleProposal, report: RedTeamReport) -> RuleProposal:
+    """
+    Generate a revised RuleProposal informed by Red Team bypass findings.
+
+    The bypass scenarios from the RedTeamReport are injected as adversarial
+    constraints, forcing the LLM to produce a condition that closes the gaps.
+
+    Args:
+        original: The proposal that was red-teamed.
+        report:   The RedTeamReport produced by red_team_rule().
+
+    Returns:
+        A new RuleProposal with status="pending" and a strengthened condition.
+    """
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+    bypass_summary = [
+        {
+            "description": s.description,
+            "signal_overrides": s.signal_overrides,
+            "rule_fired": s.rule_fired,
+            "system_verdict": s.system_verdict,
+        }
+        for s in report.scenarios
+        if not s.rule_fired
+    ]
+
+    user_content = json.dumps({
+        "original_proposal": {
+            "rule_type":       original.rule_type,
+            "rule_name":       original.rule_name,
+            "description":     original.description,
+            "proposed_change": original.proposed_change,
+            "expected_impact": original.expected_impact,
+            "risk":            original.risk,
+        },
+        "red_team_findings": {
+            "bypass_rate":     report.bypass_rate,
+            "attempts_total":  report.attempts_total,
+            "bypassed_rule":   report.attempts_bypassed_rule,
+            "bypassed_system": report.attempts_bypassed_system,
+            "bypass_scenarios": bypass_summary,
+        },
+    }, indent=2)
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        temperature=0,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": _REVISE_PROMPT},
+            {"role": "user",   "content": user_content},
+        ],
+    )
+
+    data = json.loads(response.choices[0].message.content.strip())
+
+    return RuleProposal(
+        pattern_tags=original.pattern_tags,
+        pattern_count=original.pattern_count,
+        pattern_finding_type=original.pattern_finding_type,
         rule_type=data["rule_type"],
         rule_name=data["rule_name"],
         description=data["description"],

@@ -21,7 +21,7 @@ from src.sentinel.memory_store import MemoryStore
 from src.sentinel.pattern_detection import run_pattern_detection
 from src.sentinel.red_team_agent import red_team_rule
 from src.sentinel.rule_applier import apply_proposal
-from src.sentinel.rule_proposer import ProposalStore
+from src.sentinel.rule_proposer import ProposalStore, revise_rule
 
 # ---------------------------------------------------------------------------
 # Config
@@ -321,10 +321,14 @@ def page_proposals() -> None:
             proposal_store.update_status(proposal.proposal_id, "approved")
             st.success(result)
             st.rerun()
+        rt_key = f"rt_report_{proposal.proposal_id}"
         if col_rt.button("🔴 Red Team", key=f"rt_{proposal.proposal_id}",
                          use_container_width=True):
             with st.spinner("Red team agent running adversarial scenarios…"):
-                report = red_team_rule(proposal)
+                st.session_state[rt_key] = red_team_rule(proposal)
+
+        if rt_key in st.session_state:
+            report = st.session_state[rt_key]
             color = {"approve": "🟢", "revise": "🟡", "reject": "🔴"}.get(report.recommendation, "⚪")
             st.markdown(
                 f"**{color} Red Team: {report.recommendation.upper()}** — "
@@ -337,6 +341,15 @@ def page_proposals() -> None:
                     fired = "✅ rule fired" if s.rule_fired else f"❌ evaded → caught by: {s.caught_by or 'none'}"
                     st.markdown(f"**{i}. {s.description}**  \n`{fired}` · system verdict: `{s.system_verdict}`")
                     st.json(s.signal_overrides)
+
+            if report.recommendation in ("revise", "reject"):
+                if st.button("🔄 Generate Revised Rule", key=f"revise_{proposal.proposal_id}"):
+                    with st.spinner("Rule Proposer revising based on red team findings…"):
+                        revised = revise_rule(proposal, report)
+                        proposal_store.save(revised)
+                    st.success(f"Revised proposal **{revised.rule_name}** added to queue.")
+                    del st.session_state[rt_key]
+                    st.rerun()
         if col_reject.button("❌ Reject", key=f"reject_{proposal.proposal_id}",
                              use_container_width=True):
             proposal_store.update_status(proposal.proposal_id, "rejected")

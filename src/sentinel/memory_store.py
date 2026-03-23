@@ -195,6 +195,87 @@ class MemoryStore:
         """Return every stored record, oldest first."""
         return [InvestigationRecord(**r) for r in self._load_all()]
 
+    def get_archetypes(self, min_cases: int = 3) -> list[dict]:
+        """
+        Derive case archetypes by clustering stored records on pattern tags.
+
+        Each archetype summarises what Sentinel has learned about a recurring
+        pattern: how often it appears, how often it's a false positive, what
+        the dominant verdict is, and a representative narrative excerpt.
+
+        Only tag combinations seen in at least `min_cases` records are returned.
+        Sorted by case_count descending.
+
+        Returns a list of dicts with keys:
+            tags            - sorted list of tags defining this archetype
+            case_count      - number of records matching this tag set
+            fp_rate         - fraction labeled false_positive by an analyst
+            dominant_assessment - most common Sentinel assessment
+            dominant_verdict    - most common arbiter verdict
+            hypothesis_confirmed_rate - fraction where hypothesis_outcome=="confirmed"
+            example_narrative   - first 200 chars of the most recent narrative
+        """
+        records = self._load_all()
+        if not records:
+            return []
+
+        # Group by frozenset of pattern_tags
+        groups: dict[frozenset, list[dict]] = {}
+        for r in records:
+            key = frozenset(r.get("pattern_tags") or [])
+            if not key:
+                continue
+            groups.setdefault(key, []).append(r)
+
+        archetypes = []
+        for tag_set, recs in groups.items():
+            if len(recs) < min_cases:
+                continue
+
+            labeled = [r for r in recs if r.get("analyst_verdict")]
+            fp_count = sum(1 for r in labeled if r.get("analyst_verdict") == "false_positive")
+            fp_rate = round(fp_count / len(labeled), 3) if labeled else None
+
+            assessments: dict[str, int] = {}
+            for r in recs:
+                a = r.get("assessment", "uncertain")
+                assessments[a] = assessments.get(a, 0) + 1
+            dominant_assessment = max(assessments, key=assessments.__getitem__)
+
+            verdicts: dict[str, int] = {}
+            for r in recs:
+                v = r.get("arbiter_verdict", "unknown")
+                verdicts[v] = verdicts.get(v, 0) + 1
+            dominant_verdict = max(verdicts, key=verdicts.__getitem__)
+
+            confirmed = sum(
+                1 for r in recs if r.get("hypothesis_outcome") == "confirmed"
+            )
+            total_with_outcome = sum(
+                1 for r in recs if r.get("hypothesis_outcome") is not None
+            )
+            confirmed_rate = (
+                round(confirmed / total_with_outcome, 3)
+                if total_with_outcome else None
+            )
+
+            # Most recent narrative snippet
+            latest = max(recs, key=lambda r: r.get("created_at", ""))
+            narrative = latest.get("investigation_narrative", "")[:200]
+
+            archetypes.append({
+                "tags":                       sorted(tag_set),
+                "case_count":                 len(recs),
+                "fp_rate":                    fp_rate,
+                "dominant_assessment":        dominant_assessment,
+                "dominant_verdict":           dominant_verdict,
+                "hypothesis_confirmed_rate":  confirmed_rate,
+                "example_narrative":          narrative,
+            })
+
+        archetypes.sort(key=lambda a: a["case_count"], reverse=True)
+        return archetypes
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------

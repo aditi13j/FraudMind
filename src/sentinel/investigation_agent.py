@@ -109,7 +109,7 @@ def _generate_plan(
 
 _SYSTEM_PROMPT = """\
 You are Sentinel, a bounded fraud investigator.
-You have 3 tool calls maximum. Use them wisely.
+You have 4 tool calls maximum. Use them wisely.
 Start with the tool most relevant to the dominant domain.
 Stop early if evidence is clear.
 
@@ -120,13 +120,24 @@ Available tools:
                            of this case (behavior, signals, domains, tags so far)
   get_specialist_evidence — score and primary signals for a specific domain
                            (ato, payment, identity, promo, ring, payload)
+  get_case_archetype     — learned pattern statistics from all past investigations
+                           matching these tags: fp_rate, dominant assessment,
+                           hypothesis_confirmed_rate. Use when you have candidate
+                           tags and want to know how reliable this pattern has been.
 
 Always end with a structured JSON object (no markdown, no preamble):
 {
   "investigation_narrative": "<3-6 sentences synthesizing all evidence>",
   "pattern_tags": ["<tag1>", "<tag2>", ...],
-  "assessment": "likely_correct" | "possible_false_positive" | "uncertain"
+  "assessment": "likely_correct" | "possible_false_positive" | "uncertain",
+  "hypothesis_outcome": "confirmed" | "refuted" | "ambiguous"
 }
+
+hypothesis_outcome rules:
+  confirmed  — evidence gathered supports the pre-generated hypothesis.
+  refuted    — evidence contradicts the hypothesis (e.g. clean enrichment history
+               despite a high-risk signal, or a different fraud type emerged).
+  ambiguous  — evidence is mixed or the hypothesis was too vague to evaluate.
 
 Pattern tag vocabulary (pick 2-6 that apply):
   Domain   : ring_fraud, payment_fraud, ato, identity_fraud, bot_session, promo_abuse
@@ -195,7 +206,39 @@ def _build_tools(
             "signals_evaluated": spec.signals_evaluated if spec else 0,
         }
 
-    return [get_enrichment, find_similar_cases, get_specialist_evidence]
+    @tool
+    def get_case_archetype(pattern_tags: list[str]) -> dict:
+        """
+        Retrieve a learned archetype for a recurring fraud pattern.
+
+        Returns aggregate statistics from all past investigations that share
+        these pattern tags: false positive rate, dominant assessment, dominant
+        verdict, hypothesis confirmation rate, and a representative narrative.
+
+        Use this when you have identified likely pattern tags and want to know
+        how reliable this pattern has historically been before finalising your
+        assessment. An fp_rate above 0.3 is a strong signal to consider
+        possible_false_positive.
+        """
+        archetypes = store.get_archetypes(min_cases=2)
+        if not archetypes:
+            return {"message": "No archetypes available yet — insufficient historical data."}
+
+        query_set = set(pattern_tags)
+        best_match = None
+        best_overlap = 0
+        for arch in archetypes:
+            overlap = len(query_set & set(arch["tags"]))
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_match = arch
+
+        if best_match is None or best_overlap == 0:
+            return {"message": "No matching archetype found for these tags."}
+
+        return best_match
+
+    return [get_enrichment, find_similar_cases, get_specialist_evidence, get_case_archetype]
 
 
 # ---------------------------------------------------------------------------
@@ -366,6 +409,7 @@ def run_investigation(
         amount_usd=amount_usd,
         trigger_reason=arbiter_output.trigger_reason,
         hypothesis=plan.get("hypothesis"),
+        hypothesis_outcome=data.get("hypothesis_outcome"),
         investigation_plan=plan.get("plan"),
         risk_vector=risk_vector,
         enriched_signals=enriched_signals,
