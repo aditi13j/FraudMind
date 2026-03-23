@@ -19,6 +19,7 @@ import streamlit as st
 from src.schemas.investigation_record import InvestigationRecord
 from src.sentinel.memory_store import MemoryStore
 from src.sentinel.pattern_detection import run_pattern_detection
+from src.sentinel.red_team_agent import red_team_rule
 from src.sentinel.rule_applier import apply_proposal
 from src.sentinel.rule_proposer import ProposalStore
 
@@ -93,6 +94,12 @@ st.markdown("""
 
 memory_store   = MemoryStore()
 proposal_store = ProposalStore()
+
+
+@st.cache_data(ttl=3600)
+def _cached_patterns(time_window_hours: int = 48, min_count: int = 2) -> list:
+    """Pattern detection results cached for 1 hour — one LLM call shared across all page loads."""
+    return run_pattern_detection(time_window_hours=time_window_hours, min_count=min_count)
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -307,13 +314,29 @@ def page_proposals() -> None:
             st.markdown(f"**Expected impact:** {proposal.expected_impact}")
             st.markdown(f"**Risk:** {proposal.risk}")
 
-        col_approve, col_reject, _ = st.columns([1, 1, 5])
+        col_approve, col_reject, col_rt, _ = st.columns([1, 1, 1, 3])
         if col_approve.button("✅ Approve", key=f"approve_{proposal.proposal_id}",
                               use_container_width=True, type="primary"):
             result = apply_proposal(proposal)
             proposal_store.update_status(proposal.proposal_id, "approved")
             st.success(result)
             st.rerun()
+        if col_rt.button("🔴 Red Team", key=f"rt_{proposal.proposal_id}",
+                         use_container_width=True):
+            with st.spinner("Red team agent running adversarial scenarios…"):
+                report = red_team_rule(proposal)
+            color = {"approve": "🟢", "revise": "🟡", "reject": "🔴"}.get(report.recommendation, "⚪")
+            st.markdown(
+                f"**{color} Red Team: {report.recommendation.upper()}** — "
+                f"{report.recommendation_reasoning}  \n"
+                f"`{report.attempts_bypassed_rule}/{report.attempts_total}` bypass rule · "
+                f"`{report.attempts_bypassed_system}/{report.attempts_total}` bypass system"
+            )
+            with st.expander("Bypass scenarios", expanded=False):
+                for i, s in enumerate(report.scenarios, 1):
+                    fired = "✅ rule fired" if s.rule_fired else f"❌ evaded → caught by: {s.caught_by or 'none'}"
+                    st.markdown(f"**{i}. {s.description}**  \n`{fired}` · system verdict: `{s.system_verdict}`")
+                    st.json(s.signal_overrides)
         if col_reject.button("❌ Reject", key=f"reject_{proposal.proposal_id}",
                              use_container_width=True):
             proposal_store.update_status(proposal.proposal_id, "rejected")

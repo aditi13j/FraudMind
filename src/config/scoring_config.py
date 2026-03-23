@@ -19,14 +19,26 @@ node functions or scoring logic. Import from this module instead.
 # direct and low-noise. Identity, Payload, and Promo carry lower weights
 # because they are primarily corroborating rather than conclusive domains.
 
-DOMAIN_WEIGHTS: dict[str, float] = {
-    "ring":     0.30,
-    "payment":  0.25,
-    "ato":      0.20,
-    "identity": 0.15,
-    "payload":  0.07,
-    "promo":    0.03,
-}
+def _load_domain_weights() -> dict[str, float]:
+    """
+    Load DOMAIN_WEIGHTS from the RulesStore, falling back to hardcoded
+    defaults if the DB is unavailable. Called once at import time.
+    """
+    try:
+        from src.rules.rules_store import RulesStore
+        return RulesStore().get_active_domain_weights()
+    except Exception:
+        return {
+            "ring":     0.30,
+            "payment":  0.25,
+            "ato":      0.20,
+            "identity": 0.15,
+            "payload":  0.07,
+            "promo":    0.03,
+        }
+
+
+DOMAIN_WEIGHTS: dict[str, float] = _load_domain_weights()
 
 # ---------------------------------------------------------------------------
 # Arbiter thresholds

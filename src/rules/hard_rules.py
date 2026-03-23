@@ -4,18 +4,20 @@ Hard Rules -- P0 feedback layer.
 Pure Python. No LLM. Runs before specialists in the graph.
 Returns immediately on the first matching rule (order matters).
 
-Rules are intentionally simple and binary. Each rule has a plain English
-name that appears in ArbiterOutput.rule_name so analysts can aggregate
-verdicts by rule without parsing free-text reasoning.
+Static rules are defined directly in this file (confirmed_ring, known_bot,
+extreme_velocity, trusted_account). Dynamic rules are loaded from the
+RulesStore at call time and evaluated in a sandboxed namespace — only the
+six signal objects are in scope, no builtins, no imports.
 
-Rule order (most conclusive first):
-    1. confirmed_ring   — ring signature match + confirmed fraud links
-    2. known_bot        — TLS fingerprint + headless browser
-    3. extreme_velocity — card testing burst (20+ txns/hr)
-    4. trusted_account  — long-tenured, known device, home geo, normal spend
+Rule order: static rules first (most conclusive), then dynamic rules in
+created_at order.
 """
 
 from dataclasses import dataclass
+
+from src.rules.rules_store import RulesStore
+
+_rules_store = RulesStore()
 
 
 @dataclass
@@ -23,6 +25,20 @@ class HardRuleResult:
     matched: bool
     rule_name: str   # empty string when matched=False
     verdict: str     # "block" | "allow" | "" when matched=False
+
+
+def _eval_condition(condition: str, namespace: dict) -> bool:
+    """
+    Evaluate a condition string in a restricted namespace.
+
+    builtins={} means no __import__, no open, no exec — only the
+    signal variables supplied in namespace are accessible.
+    Returns False on any exception so a bad rule never crashes the graph.
+    """
+    try:
+        return bool(eval(condition, {"__builtins__": {}}, namespace))  # noqa: S307
+    except Exception:
+        return False
 
 
 def hard_rules_check(state: dict) -> HardRuleResult:
@@ -72,5 +88,21 @@ def hard_rules_check(state: dict) -> HardRuleResult:
             and not ato.geo_mismatch
             and payment.amount_vs_avg_ratio < 1.5):
         return HardRuleResult(matched=True, rule_name="trusted_account", verdict="allow")
+
+    # Dynamic rules from RulesStore — analyst-approved, zero .py file diff
+    _namespace = {
+        "ato":      ato,
+        "payment":  payment,
+        "ring":     ring,
+        "payload":  payload,
+        "identity": state.get("identity_signals"),
+        "promo":    state.get("promo_signals"),
+    }
+    for rule in _rules_store.get_active_hard_rules():
+        condition = rule.get("condition", "")
+        verdict   = rule.get("verdict", "block")
+        rule_name = rule.get("rule_name", "dynamic_rule")
+        if condition and _eval_condition(condition, _namespace):
+            return HardRuleResult(matched=True, rule_name=rule_name, verdict=verdict)
 
     return HardRuleResult(matched=False, rule_name="", verdict="")

@@ -36,6 +36,14 @@ class InvestigationRecord(BaseModel):
     pattern_tags: list[str] = Field(..., description="Structured labels for case clustering. E.g. ring_fraud, bot_session, new_account.")
     assessment: str = Field(..., description="Sentinel's verdict assessment: correct, possible_false_positive, or uncertain.")
     created_at: str = Field(..., description="ISO 8601 timestamp of when the investigation was run.")
+    hypothesis: Optional[str] = Field(
+        default=None,
+        description="One-sentence fraud hypothesis generated before investigation begins.",
+    )
+    investigation_plan: Optional[list[str]] = Field(
+        default=None,
+        description="Three-step plan generated before the ReAct tool loop.",
+    )
     tool_trace: list[dict] = Field(
         default_factory=list,
         description=(
