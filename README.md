@@ -2,7 +2,6 @@
 
 **An agentic fraud intelligence system built to demonstrate production-grade multi-agent patterns in a real fraud domain.**
 
-Built by an engineer with 10 years in fraud and payments (Lyft), returning to the industry. The goal was to apply 2024–2025 agentic AI patterns — plan-then-execute, bounded tool use, agent-to-agent feedback loops, semantic memory — to a domain where the design decisions are grounded in real operational experience, not toy examples.
 
 ---
 
