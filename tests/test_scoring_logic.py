@@ -9,12 +9,12 @@ regressions that schema tests cannot detect.
 
 import pytest
 
-from src.agents.ato_agent import score_ato
-from src.agents.identity_agent import score_identity
-from src.agents.payload_agent import score_payload
-from src.agents.payment_agent import score_payment
-from src.agents.promo_agent import score_promo
-from src.agents.ring_detection_agent import score_ring
+from src.scorers.ato_scorer import score_ato
+from src.scorers.identity_scorer import score_identity
+from src.scorers.payload_scorer import score_payload
+from src.scorers.payment_scorer import score_payment
+from src.scorers.promo_scorer import score_promo
+from src.scorers.ring_scorer import score_ring
 from src.schemas.ato_schemas import MockATOSignals
 from src.schemas.identity_schemas import IdentitySignals
 from src.schemas.payload_schemas import PayloadSignals
